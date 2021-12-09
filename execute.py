@@ -39,6 +39,10 @@ if __name__ == '__main__':
     decoder = Decoder(embed_size=embed_size, hidden_size=hidden_size, voc_size=len(voc), max_length=max_length).to(device);
 
     train(encoder, decoder, train_data, device, lr)
+    PATH1 = '/mnt/vol_b/encoder.pth'
+    PATH2 = '/mnt/vol_b/decoder.pth'
+    torch.save(encoder.state_dict(), PATH1, _use_new_zipfile_serialization = False)
+    torch.save(decoder.state_dict(), PATH2, _use_new_zipfile_serialization = False)
 
 
 
