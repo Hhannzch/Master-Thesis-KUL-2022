@@ -9,6 +9,7 @@ from voc import build_voc
 import argparse
 
 if __name__ == '__main__':
+    print("test")
 
     parser = argparse.ArgumentParser(
         description="Some description."
