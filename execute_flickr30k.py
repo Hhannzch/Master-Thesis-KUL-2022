@@ -40,6 +40,8 @@ if __name__ == '__main__':
                         default="C:\\Users\\doris\\Downloads\\encoder.pth")
     parser.add_argument("--decoder_save_path", type=str,
                         default="C:\\Users\\doris\\Downloads\\decoder.pth")
+    parser.add_argument("--log_save_path", type=str,
+                        default="C:\\Users\\doris\\Downloads\\log.txt")
 
     args = parser.parse_args()
 
@@ -62,4 +64,4 @@ if __name__ == '__main__':
                       max_length=args.max_length).to(device)
 
     # torch.cuda.empty_cache()
-    train(encoder, decoder, train_data, val_data, device, args.lr, args.encoder_save_path, args.decoder_save_path, args.nepoch)
+    train(encoder, decoder, train_data, val_data, device, args.lr, args.encoder_save_path, args.decoder_save_path, args.nepoch, args.log_save_path)
