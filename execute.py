@@ -15,13 +15,13 @@ if __name__ == '__main__':
     )
 
     parser.add_argument("--train_info", type=str,
-                        default="/Users/doriszhang/coco2017/annotations/captions_val2017.json")
+                        default="C:\\Users\\doris\\Downloads\\annotations_trainval2017\\annotations\\captions_val2017.json")
     parser.add_argument("--train_image", type=str,
-                        default="/Users/doriszhang/coco2017/val2017")
+                        default="C:\\Users\\doris\\Downloads\\val2017\\val2017")
     parser.add_argument("--nmin", type=int,
                         default=50)
     parser.add_argument("--batch_size", type=int,
-                        default=128)
+                        default=64)
     parser.add_argument(
         "--deterministic", action="store_false", help="Whether to shuffle the data. Default is True.",
     )
@@ -37,9 +37,9 @@ if __name__ == '__main__':
                         default=0.001)
 
     parser.add_argument("--encoder_save_path", type=str,
-                        default="/mnt/vol_b/encoder.pth")
+                        default="C:\\Users\\doris\\Downloads\\encoder.pth")
     parser.add_argument("--decoder_save_path", type=str,
-                        default="/mnt/vol_b/decoder.pth")
+                        default="C:\\Users\\doris\\Downloads\\decoder.pth")
 
     args = parser.parse_args()
 
@@ -47,13 +47,20 @@ if __name__ == '__main__':
 
     voc = build_voc(coco, args.nmin)
     dataset = cocoData(coco, args.train_image, voc, transform = transforms.Compose([transforms.Resize((256,256)), transforms.ToTensor()]))
-    train_data = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size ,shuffle=args.deterministic , num_workers=args.num_workers , collate_fn=collate_fn)
+    # print(len(dataset))
+    train_data, val_data = torch.utils.data.random_split(dataset, [22514, 2500])
+    train_data = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size ,shuffle=args.deterministic , num_workers=args.num_workers , collate_fn=collate_fn)
+    val_data = torch.utils.data.DataLoader(val_data, batch_size=args.batch_size, shuffle=args.deterministic,
+                                             num_workers=args.num_workers, collate_fn=collate_fn)
+
+
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     encoder = Encoder(embed_size=args.embed_size).to(device)
     decoder = Decoder(embed_size=args.embed_size, hidden_size=args.hidden_size, voc_size=len(voc), max_length=args.max_length).to(device)
 
-    train(encoder, decoder, train_data, device, args.lr)
+    # torch.cuda.empty_cache()
+    train(encoder, decoder, train_data, val_data, device, args.lr)
     torch.save(encoder.state_dict(), args.encoder_save_path, _use_new_zipfile_serialization = False)
     torch.save(decoder.state_dict(), args.decoder_save_path, _use_new_zipfile_serialization = False)
 
