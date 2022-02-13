@@ -31,6 +31,8 @@ if __name__ == '__main__':
                         default=512)
     parser.add_argument("--max_length", type=int,
                         default=15)
+    parser.add_argument("--nepoch", type=int,
+                        default=10)
     parser.add_argument("--lr", type=float,
                         default=0.001)
 
@@ -60,6 +62,4 @@ if __name__ == '__main__':
                       max_length=args.max_length).to(device)
 
     # torch.cuda.empty_cache()
-    train(encoder, decoder, train_data, val_data, device, args.lr)
-    torch.save(encoder.state_dict(), args.encoder_save_path, _use_new_zipfile_serialization=False)
-    torch.save(decoder.state_dict(), args.decoder_save_path, _use_new_zipfile_serialization=False)
+    train(encoder, decoder, train_data, val_data, device, args.lr, args.encoder_save_path, args.decoder_save_path, args.nepoch)
