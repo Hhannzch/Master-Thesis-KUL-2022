@@ -1,22 +1,23 @@
 import torch.nn as nn
 import torch
 from torch.nn.utils.rnn import pack_padded_sequence
+import numpy as np
 
-def train(encoder, decoder, train_data, validate_data, device, lr):
+def train(encoder, decoder, train_data, validate_data, device, lr, encoder_save_path, decoder_save_path, nepoch):
     criterion = nn.CrossEntropyLoss()
     params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
     optimizer = torch.optim.Adam(params, lr=lr)
-    running_loss = 0
-    validate_loss = 0
-    validate_loss_compare = float('inf')
-    epoch = 0
+    train_losses = []
+    valid_losses = []
+    avg_train_loss = []
+    avg_valid_loss = []
+    print_loss = 0
+    best_loss = float('inf')
 
     # total_step = len(train_data)
-    # for epoch in range(5):
-    while (validate_loss_compare > validate_loss):
-        if (validate_loss != 0.0):
-            validate_loss_compare = validate_loss
-        validate_loss = 0.0
+    for epoch in range(nepoch):
+        encoder.train()
+        decoder.train()
         for i, (images, captions, length) in enumerate(train_data):
             images = images.to(device)
             captions = captions.to(device)
@@ -34,13 +35,16 @@ def train(encoder, decoder, train_data, validate_data, device, lr):
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
+            train_losses.append(loss.item())
+            print_loss += loss.item()
             """ print training loss per 500 batch"""
-            if i % 5 == 0: 
-                print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 5))
-                running_loss = 0.0
+            if i % 5 == 0:
+                print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, print_loss / 5))
+                print_loss = 0.0
 
         """ evaluate training result using validation dataset"""
+        encoder.eval()
+        decoder.eval()
         for i, (images, captions, length) in enumerate(validate_data):
             images = images.to(device)
             captions = captions.to(device)
@@ -52,10 +56,20 @@ def train(encoder, decoder, train_data, validate_data, device, lr):
             # print(outputs.shape)
             # print(targets.shape)
             loss = criterion(outputs, targets)
-            validate_loss += loss.item()
+            valid_losses.append(loss.item)
 
-        print('%.3f is the validate loss for epoch %d' % (validate_loss, epoch+1))
+        train_loss = np.average(train_losses)
+        valid_loss = np.average(valid_losses)
+        print_msg = (f'[{epoch:>{nepoch}}/{nepoch:>{nepoch}}] ' +
+                     f'train_loss: {train_loss:.5f} ' +
+                     f'valid_loss: {valid_loss:.5f}')
+        print(print_msg)
 
-        epoch += 1
-
+        if valid_loss < best_loss:
+            best_loss = valid_loss
+            torch.save(encoder.state_dict(), encoder_save_path, _use_new_zipfile_serialization=False)
+            torch.save(decoder.state_dict(), decoder_save_path, _use_new_zipfile_serialization=False)
+        else:
+            print("Early stopping with best_acc: ", best_loss)
+            break
 
