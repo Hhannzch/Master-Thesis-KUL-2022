@@ -13,6 +13,7 @@ def train(encoder, decoder, train_data, validate_data, device, lr, encoder_save_
     avg_valid_loss = []
     print_loss = 0
     best_loss = float('inf')
+    torch.cuda.empty_cache()
 
     # total_step = len(train_data)
     with open(log_save_path, "w") as f:
@@ -42,7 +43,7 @@ def train(encoder, decoder, train_data, validate_data, device, lr, encoder_save_
                 if i % 5 == 0:
                     print_msg = "[" + str(epoch+1) + ", "+ str(i+1) + "]" + ", running_loss: " + str(print_loss/5)
                     print(print_msg)
-                    f.write(print_msg)
+                    # f.write(print_msg)
                     print_loss = 0.0
 
             """ evaluate training result using validation dataset"""

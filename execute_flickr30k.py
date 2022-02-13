@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser.add_argument("--nmin", type=int,
                         default=50)
     parser.add_argument("--batch_size", type=int,
-                        default=64)
+                        default=32)
     parser.add_argument(
         "--deterministic", action="store_false", help="Whether to shuffle the data. Default is True.",
     )
