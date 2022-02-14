@@ -40,10 +40,10 @@ def train(encoder, decoder, train_data, validate_data, device, lr, encoder_save_
                 train_losses.append(loss.item())
                 print_loss += loss.item()
                 """ print training loss per 500 batch"""
-                if i % 5 == 0:
-                    print_msg = "[" + str(epoch+1) + ", "+ str(i+1) + "]" + ", running_loss: " + str(print_loss/5) + "\n"
+                if i % 50 == 0:
+                    print_msg = "[" + str(epoch+1) + ", "+ str(i+1) + "]" + ", running_loss: " + str(print_loss/50)
                     print(print_msg)
-                    f.write(print_msg)
+                    f.write(print_msg + "\n")
                     print_loss = 0.0
 
             """ evaluate training result using validation dataset"""
@@ -65,9 +65,9 @@ def train(encoder, decoder, train_data, validate_data, device, lr, encoder_save_
 
             train_loss = np.average(train_losses)
             valid_loss = np.average(valid_losses)
-            print_msg = "epoch: " + str(epoch+1) + ", train_loss: " + str(train_loss) + ", valid_loss: " + str(valid_loss) + "\n"
+            print_msg = "epoch: " + str(epoch+1) + ", train_loss: " + str(train_loss) + ", valid_loss: " + str(valid_loss)
             print(print_msg)
-            f.write(print_msg)
+            f.write(print_msg + "\n")
 
             if valid_loss < best_loss:
                 best_loss = valid_loss
