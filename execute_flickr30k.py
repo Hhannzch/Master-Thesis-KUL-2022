@@ -7,6 +7,7 @@ from model import Encoder, Decoder
 from train import *
 from voc_flickr30k import build_voc
 import argparse
+from evaluate_flickr30k import test
 
 
 if __name__ == '__main__':
@@ -16,6 +17,10 @@ if __name__ == '__main__':
                         default="C:\\Users\\doris\\Downloads\\flickr30k\\annotations\\annotations.token")
     parser.add_argument("--image_path", type=str,
                         default="C:\\Users\\doris\\Downloads\\flickr30k\\images")
+    parser.add_argument("--test_info", type=str,
+                        default="C:\\Users\\doris\\Downloads\\coco_val\\annotations_trainval2017\\annotations\\instances_val2017.json")
+    parser.add_argument("--test_path", type=str,
+                        default="C:\\Users\\doris\\Downloads\\coco_val\\val2017\\val2017")
     parser.add_argument("--nmin", type=int,
                         default=50)
     parser.add_argument("--batch_size", type=int,
@@ -65,3 +70,5 @@ if __name__ == '__main__':
 
     # torch.cuda.empty_cache()
     train(encoder, decoder, train_data, val_data, device, args.lr, args.encoder_save_path, args.decoder_save_path, args.nepoch, args.log_save_path)
+    test(args.test_info, args.test_path, device, args.embed_size, args.hidden_size, args.max_length, args.batch_size, args.deterministic, args.num_workers,
+         args.encoder_save_path, args.decoder_save_path)

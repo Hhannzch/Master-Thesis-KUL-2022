@@ -1,9 +1,13 @@
+from dataloader import cocoData, collate_fn
 from model import Encoder
 from model import Decoder
 from voc_flickr30k import Voc
 import torch
 from PIL import Image
 import numpy as np
+from pycocotools.coco import COCO
+from torchvision import transforms
+from pycocoevalcap.eval import COCOEvalCap
 
 
 def read_voc():
@@ -14,38 +18,9 @@ def read_voc():
             print(line.split("\n")[0].split(" ")[0])
     return voc
 
-
-def generate_caption(image_path, voc, encoder, decoder, transform, device):
-    """reading image from input path"""
-    im = Image.open(image_path)
-    # process gray picture to RGB picture
-    image_dim_len = len(np.array(im).shape)
-    if image_dim_len == 2:
-        ar = np.asarray(im, dtype=np.uint8)
-        x = np.ones((ar.shape[0], ar.shape[1], 3))
-        x[:, :, 0] = ar
-        x[:, :, 1] = ar
-        x[:, :, 2] = ar
-        im = Image.fromarray(x, mode='RGB')
-    if transform is not None:
-        im = transform(im)
-    image_tensor = im.to(device)
-
-    """generate caption"""
-    features = encoder(im)
-    generate_word_ids = decoder.generate(features)
-    generate_word_ids = generate_word_ids[0].cpu().numpy()
-    generate_caption = []
-    for word_id in generate_word_ids:
-        word = voc.index2word[word_id]
-        generate_caption.append(word)
-        if word == '<end>':
-            break
-    return generate_caption
-
-
 # ref: https://github.com/JazzikPeng/Show-Tell-Image-Caption-in-PyTorch/blob/master/SHOW_AND_TELL_CODE_FINAL_VERSION/model_bleu.py
-def test(test_path, device, embed_size, hidden_size, max_length, encoder_save_path, decoder_save_path):
+# ref: https://github.com/cocodataset/cocoapi/issues/343
+def test(test_info, test_path, device, embed_size, hidden_size, max_length, batch_size, deterministic, num_workers, encoder_save_path, decoder_save_path):
     voc = read_voc()
     encoder = Encoder(embed_size=embed_size).eval()
     decoder = Decoder(embed_size=embed_size, hidden_size=hidden_size, voc_size=len(voc),
@@ -56,13 +31,35 @@ def test(test_path, device, embed_size, hidden_size, max_length, encoder_save_pa
     encoder.load_state_dict(torch.load(encoder_save_path, map_location=device))
     decoder.load_state_dict(torch.load(decoder_save_path, map_location=device))
 
-    name_caption_
+    coco = COCO(test_info)
+    testset = cocoData(coco, test_path, voc, transform = transforms.Compose([transforms.Resize((256,256)), transforms.ToTensor()]))
+    testset = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=deterministic,
+                                             num_workers=num_workers, collate_fn=collate_fn)
+    results = []
+    for i, (images, _, _, ids) in enumerate(testset):
+        images = images.to(device)
+        features = encoder(images)
+        generate_word_ids = decoder.generate(features)
+        generate_captions = []
+        for generate_word_id in generate_word_ids:
+            generate_word_id = generate_word_id[0].cpu().numpy()
+            generate_caption = ""
+            for word_id in generate_word_id:
+                word = voc.index2word[word_id]
+                if word == '<end>':
+                    generate_caption = generate_caption + "."
+                    break
+                else:
+                    generate_caption = generate_caption + word
+            generate_captions.append(generate_caption)
 
-    # device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    # encoder = Encoder(embed_size=args.embed_size).to(device)
-    # decoder = Decoder(embed_size=args.embed_size, hidden_size=args.hidden_size, voc_size=len(voc),
-    #                   max_length=args.max_length).to(device)
-    #
-    # # torch.cuda.empty_cache()
-    # train(encoder, decoder, train_data, val_data, device, args.lr, args.encoder_save_path, args.decoder_save_path,
-    #       args.nepoch, args.log_save_path)
+        for i in range(len(ids)):
+            result = {"image_id": ids[i].cpu().numpy(), "caption": generate_captions[i]}
+            results.append(result)
+
+    coco_results = coco.loadRes(results)
+
+    # Evaluate
+    cocoEval = COCOEvalCap(coco, coco_results)
+    for metric, score in cocoEval.eval.items():
+        print('%s: %.3f' % (metric, score))
