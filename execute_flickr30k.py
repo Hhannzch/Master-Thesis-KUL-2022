@@ -32,7 +32,7 @@ if __name__ == '__main__':
     parser.add_argument("--max_length", type=int,
                         default=15)
     parser.add_argument("--nepoch", type=int,
-                        default=10)
+                        default=15)
     parser.add_argument("--lr", type=float,
                         default=0.001)
 
