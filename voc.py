@@ -39,11 +39,18 @@ def build_voc(coco, nmin):
         if count >= nmin:
             words.append(word)
     voc = Voc()
+
+    fw = open('data.txt', 'w')
     voc.add_word('<pad>')
+    fw.write('0 <pad>\n')
     voc.add_word('<start>')
+    fw.write('1 <start>\n')
     voc.add_word('<end>')
+    fw.write('2 <end>\n')
     voc.add_word('<unknown>')
+    fw.write('3 <unknown>\n')
     for word in words:
         voc.add_word(word)
-    
+        fw.write(str(voc[word])+ ' '+ word + '\n')
+    fw.close()
     return voc
