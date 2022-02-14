@@ -9,8 +9,6 @@ def train(encoder, decoder, train_data, validate_data, device, lr, encoder_save_
     optimizer = torch.optim.Adam(params, lr=lr)
     train_losses = []
     valid_losses = []
-    avg_train_loss = []
-    avg_valid_loss = []
     print_loss = 0
     best_loss = float('inf')
     torch.cuda.empty_cache()
@@ -61,7 +59,7 @@ def train(encoder, decoder, train_data, validate_data, device, lr, encoder_save_
                     # print(outputs.shape)
                     # print(targets.shape)
                     loss = criterion(outputs, targets)
-                    valid_losses.append(loss.item)
+                    valid_losses.append(loss.item())
 
             train_loss = np.average(train_losses)
             valid_loss = np.average(valid_losses)
