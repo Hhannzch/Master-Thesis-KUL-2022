@@ -60,6 +60,11 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
             result = {"image_id": ids[j], "caption": generate_captions[j]}
             results.append(result)
 
+    with open('result.txt', 'w') as f:
+        for result in results:
+            f.write(result + '\n')
+    f.close()
+
     coco_results = coco.loadRes(results)
 
     # Evaluate
