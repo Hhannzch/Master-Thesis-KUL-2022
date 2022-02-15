@@ -44,18 +44,16 @@ def build_voc(path, nmin): # path is annotations path
             words.append(word)
 
     voc = Voc()
-    fw = open('data_flickr30k.txt', 'w')
     voc.add_word('<pad>')
-    fw.write('0 <pad>\n')
     voc.add_word('<start>')
-    fw.write('1 <start>\n')
     voc.add_word('<end>')
-    fw.write('2 <end>\n')
     voc.add_word('<unknown>')
-    fw.write('3 <unknown>\n')
     for word in words:
         voc.add_word(word)
-        fw.write(str(voc[word]) + ' ' + word + '\n')
+
+    fw = open('data_flickr30k.txt', 'w')
+    for i in range(len(voc.word2index)):
+        fw.write(str(i) + ' ' + voc.index2word[i] + '\n')
     fw.close()
     return voc
 

@@ -1,4 +1,4 @@
-from dataloader import cocoData, collate_fn
+from cocoTestDataloader import cocoTestData, collate_fn
 from model import Encoder
 from model import Decoder
 from voc_flickr30k import Voc
@@ -32,17 +32,20 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
     decoder.load_state_dict(torch.load(decoder_save_path, map_location=device))
 
     coco = COCO(test_info)
-    testset = cocoData(coco, test_path, voc, transform = transforms.Compose([transforms.Resize((256,256)), transforms.ToTensor()]))
+    testset = cocoTestData(coco, test_path, voc, transform = transforms.Compose([transforms.Resize((256,256)), transforms.ToTensor()]))
     testset = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=deterministic,
                                              num_workers=num_workers, collate_fn=collate_fn)
     results = []
-    for i, (images, _, _, ids) in enumerate(testset):
+    for i, (images, ids) in enumerate(testset):
         images = images.to(device)
         features = encoder(images)
         generate_word_ids = decoder.generate(features)
+        generate_word_ids = generate_word_ids.cpu().numpy()
         generate_captions = []
+
+
+        generate_word_ids = list(generate_word_ids)
         for generate_word_id in generate_word_ids:
-            generate_word_id = generate_word_id[0].cpu().numpy()
             generate_caption = ""
             for word_id in generate_word_id:
                 word = voc.index2word[word_id]
@@ -53,8 +56,8 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
                     generate_caption = generate_caption + word
             generate_captions.append(generate_caption)
 
-        for i in range(len(ids)):
-            result = {"image_id": ids[i].cpu().numpy(), "caption": generate_captions[i]}
+        for j in range(len(ids)):
+            result = {"image_id": ids[j], "caption": generate_captions[j]}
             results.append(result)
 
     coco_results = coco.loadRes(results)
