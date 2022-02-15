@@ -3,11 +3,10 @@ from model import Encoder
 from model import Decoder
 from voc_flickr30k import Voc
 import torch
-from PIL import Image
-import numpy as np
 from pycocotools.coco import COCO
 from torchvision import transforms
 from pycocoevalcap.eval import COCOEvalCap
+import json
 
 
 def read_voc():
@@ -43,31 +42,39 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
         generate_word_ids = generate_word_ids.cpu().numpy()
         generate_captions = []
 
-
         generate_word_ids = list(generate_word_ids)
         for generate_word_id in generate_word_ids:
             generate_caption = ""
             for word_id in generate_word_id:
                 word = voc.index2word[word_id]
                 if word == '<end>':
-                    generate_caption = generate_caption + "."
                     break
                 else:
-                    generate_caption = generate_caption + word
+                    if word == '.':
+                        generate_caption = generate_caption + word
+                    elif word  == '<start>':
+                        generate_caption = generate_caption
+                    else:
+                        generate_caption = generate_caption + ' ' + word
             generate_captions.append(generate_caption)
 
         for j in range(len(ids)):
             result = {"image_id": ids[j], "caption": generate_captions[j]}
             results.append(result)
 
-    with open('result.txt', 'w') as f:
-        for result in results:
-            f.write(result + '\n')
+        # break
+
+    # should generate a json here
+    jsondata = json.dumps(results)
+    f = open('result.json', 'w')
+    f.write(jsondata)
     f.close()
 
-    coco_results = coco.loadRes(results)
+    coco_results = coco.loadRes('result.json')
 
     # Evaluate
     cocoEval = COCOEvalCap(coco, coco_results)
+    cocoEval.params['image_id'] = coco_results.getImgIds()
+    cocoEval.evaluate()
     for metric, score in cocoEval.eval.items():
         print('%s: %.3f' % (metric, score))

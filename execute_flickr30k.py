@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser.add_argument("--image_path", type=str,
                         default="C:\\Users\\doris\\Downloads\\flickr30k\\images")
     parser.add_argument("--test_info", type=str,
-                        default="C:\\Users\\doris\\Downloads\\coco_val\\annotations_trainval2017\\annotations\\instances_val2017.json")
+                        default="C:\\Users\\doris\\Downloads\\coco_val\\annotations_trainval2017\\annotations\\captions_val2017.json")
     parser.add_argument("--test_path", type=str,
                         default="C:\\Users\\doris\\Downloads\\coco_val\\val2017\\val2017")
     parser.add_argument("--nmin", type=int,
