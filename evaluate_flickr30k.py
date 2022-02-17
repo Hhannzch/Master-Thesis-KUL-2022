@@ -32,9 +32,11 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
 
     coco = COCO(test_info)
     testset = cocoTestData(coco, test_path, voc, transform = transforms.Compose([transforms.Resize((256,256)), transforms.ToTensor()]))
-    testset = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=deterministic,
-                                             num_workers=num_workers, collate_fn=collate_fn)
+    testset = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=deterministic, num_workers=num_workers, collate_fn=collate_fn)
+
+
     results = []
+    ids_helper = set()
     for i, (images, ids) in enumerate(testset):
         images = images.to(device)
         features = encoder(images)
@@ -57,12 +59,11 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
                     else:
                         generate_caption = generate_caption + ' ' + word
             generate_captions.append(generate_caption)
-
         for j in range(len(ids)):
-            result = {"image_id": ids[j], "caption": generate_captions[j]}
-            results.append(result)
-
-        # break
+            if ids[j] not in ids_helper:
+                ids_helper.add(ids[j])
+                result = {"image_id": ids[j], "caption": generate_captions[j]}
+                results.append(result)
 
     # should generate a json here
     jsondata = json.dumps(results)
@@ -70,11 +71,3 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
     f.write(jsondata)
     f.close()
 
-    coco_results = coco.loadRes('result.json')
-
-    # Evaluate
-    cocoEval = COCOEvalCap(coco, coco_results)
-    cocoEval.params['image_id'] = coco_results.getImgIds()
-    cocoEval.evaluate()
-    for metric, score in cocoEval.eval.items():
-        print('%s: %.3f' % (metric, score))
