@@ -4,7 +4,7 @@ from PIL import Image
 import numpy as np
 import nltk
 
-class flickrData(torch.utils.data.Dataset):
+class flickr30kData(torch.utils.data.Dataset):
     def __init__(self, image_path, anns_path, voc, transform = None):
         self.voc = voc
         self.transform = transform

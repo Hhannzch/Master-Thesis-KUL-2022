@@ -2,7 +2,7 @@ import os
 from pycocotools.coco import COCO
 from torchvision import transforms, utils
 import torch
-from dataloader_flickr30k import flickrData, collate_fn
+from dataloader_flickr30k import flickr30kData, collate_fn
 from model import Encoder, Decoder
 from train import *
 from voc_flickr30k import build_voc
@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
 
     voc = build_voc(args.anns_path, args.nmin)
-    dataset = flickrData(args.image_path, args.anns_path, voc,
+    dataset = flickr30kData(args.image_path, args.anns_path, voc,
                        transform=transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor()]))
     dataset_length = len(dataset)
     val_data_len = int(dataset_length/10)

@@ -24,6 +24,7 @@ parameters are:
 | Bleu_4  | 0.088 |
 | Meteor  | 0.135 |
 | Rouge_L | 0.353 |
+| CIDEr   | 0.211 |
 
 The default parameters are:
 
@@ -37,6 +38,20 @@ The default parameters are:
 | max_length    | 15    |
 | nepoch        | 15    |
 | lr            | 0.001 |
+
+with 32 batch_size:
+
+| Metric  | Score |
+|:--------|:------|
+| Bleu_1  | 0.480 |
+| Bleu_2  | 0.280 |
+| Bleu_3  | 0.160 |
+| Bleu_4  | 0.094 |
+| Meteor  | 0.137 |
+| Rouge_L | 0.357 |
+| CIDEr   | 0.299 |
+
+
 
 When evaluating models, ```pycocoeval``` are adopted.
 
