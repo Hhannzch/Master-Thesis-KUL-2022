@@ -30,8 +30,9 @@ def train(encoder, decoder, train_data, validate_data, device, lr, encoder_save_
                 # print(targets.shape)
                 loss = criterion(outputs, targets)
 
-                encoder.zero_grad()
-                decoder.zero_grad()
+                # encoder.zero_grad()
+                # decoder.zero_grad()
+                optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
 
