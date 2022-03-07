@@ -3,11 +3,12 @@ import torch
 from torch.nn.utils.rnn import pack_padded_sequence
 import numpy as np
 
-def train(encoder, decoder, train_data, validate_data, device, lr, encoder_save_path, decoder_save_path, nepoch, log_save_path):
+def train(encoder, decoder, train_data, validate_data, device, encoder_lr, decoder_lr, encoder_save_path, decoder_save_path, nepoch, log_save_path):
     criterion = nn.CrossEntropyLoss()
     # params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
     params = list(decoder.parameters()) + list(encoder.linear.parameters())
-    optimizer = torch.optim.Adam(params, lr=lr)
+    encoder_optimizer = torch.optim.Adam(params, lr=encoder_lr)
+    decoder_optimizer = torch.optim.Adam(params, lr=decoder_lr)
     train_losses = []
     valid_losses = []
     print_loss = 0
@@ -26,13 +27,14 @@ def train(encoder, decoder, train_data, validate_data, device, lr, encoder_save_
 
                 features = encoder(images)
                 # features = torch.tensor(features).to(device).long()
-                outputs = decoder(features, captions, length)
+                scores, outputs, decode_lengths, alphas, sort_ind = decoder(features, captions, length)
                 loss = criterion(outputs, targets)
 
-                encoder.zero_grad()
-                decoder.zero_grad()
+                encoder_optimizer.zero_grad()
+                decoder_optimizer.zero_grad()
                 loss.backward()
-                optimizer.step()
+                encoder_optimizer.step()
+                decoder_optimizer.step()
 
                 train_losses.append(loss.item())
                 print_loss += loss.item()

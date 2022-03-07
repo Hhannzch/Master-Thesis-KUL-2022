@@ -3,7 +3,7 @@ from pycocotools.coco import COCO
 from torchvision import transforms, utils
 import torch
 from dataloader_flickr30k import flickr30kData, collate_fn
-from model import Encoder, Decoder
+from model import Encoder, DecoderWithAttention
 from train import *
 from voc_flickr30k import build_voc
 import argparse
@@ -28,18 +28,27 @@ if __name__ == '__main__':
     parser.add_argument(
         "--deterministic", action="store_false", help="Whether to shuffle the data. Default is True.",
     )
+    parser.add_argument(
+        "--fine_tune_encoder", action="store_false", help="",
+    )
     parser.add_argument("--num_workers", type=int,
                         default=1)
-    parser.add_argument("--embed_size", type=int,
-                        default=256)
-    parser.add_argument("--hidden_size", type=int,
+    parser.add_argument("--emb_dim", type=int,
                         default=512)
+    parser.add_argument("--attention_dim", type=int,
+                        default=512)
+    parser.add_argument("--decoder_dim", type=int,
+                        default=512)
+    parser.add_argument("--dropout", type=float,
+                        default=0.5)
     parser.add_argument("--max_length", type=int,
                         default=25)
     parser.add_argument("--nepoch", type=int,
                         default=15)
-    parser.add_argument("--lr", type=float,
-                        default=0.001)
+    parser.add_argument("--encoder_lr", type=float,
+                        default=0.0001)
+    parser.add_argument("--decoder_lr", type=float,
+                        default=0.0004)
     parser.add_argument("--beam_size", type=int,
                         default=25)
 
@@ -66,9 +75,20 @@ if __name__ == '__main__':
                                            num_workers=args.num_workers, collate_fn=collate_fn)
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    encoder = Encoder(embed_size=args.embed_size).to(device)
-    decoder = Decoder(embed_size=args.embed_size, hidden_size=args.hidden_size, voc_size=len(voc),
-                      max_length=args.max_length).to(device)
+    # encoder = Encoder(embed_size=args.embed_size).to(device)
+    # decoder = Decoder(embed_size=args.embed_size, hidden_size=args.hidden_size, voc_size=len(voc),
+    #                   max_length=args.max_length).to(device)
+    decoder = DecoderWithAttention(attention_dim=args.attention_dim,
+                                   embed_dim=args.emb_dim,
+                                   decoder_dim=args.decoder_dim,
+                                   vocab_size=len(voc),
+                                   dropout=args.dropout)
+    decoder_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, decoder.parameters()),
+                                         lr=args.decoder_lr)
+    encoder = Encoder()
+    encoder.fine_tune(args.fine_tune_encoder)
+    encoder_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, encoder.parameters()),
+                                         lr=args.encoder_lr) if args.fine_tune_encoder else None
 
     # torch.cuda.empty_cache()
     train(encoder, decoder, train_data, val_data, device, args.lr, args.encoder_save_path, args.decoder_save_path, args.nepoch, args.log_save_path)
