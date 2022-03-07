@@ -18,28 +18,30 @@ if __name__ == '__main__':
     parser.add_argument("--image_path", type=str,
                         default="C:\\Users\\doris\\Downloads\\flickr30k\\images")
     parser.add_argument("--test_info", type=str,
-                        default="C:\\Users\\doris\\Downloads\\coco_val\\annotations_trainval2017\\annotations\\captions_val2017.json")
+                        default="C:\\Users\\doris\\Downloads\\flickr8k\\test_caption_coco_format.json")
     parser.add_argument("--test_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\coco_val\\val2017\\val2017")
+                        default="C:\\Users\\doris\\Downloads\\flickr8k\\Images")
     parser.add_argument("--nmin", type=int,
                         default=50)
     parser.add_argument("--batch_size", type=int,
-                        default=64)
+                        default=32)
     parser.add_argument(
         "--deterministic", action="store_false", help="Whether to shuffle the data. Default is True.",
     )
     parser.add_argument("--num_workers", type=int,
-                        default=2)
+                        default=1)
     parser.add_argument("--embed_size", type=int,
                         default=256)
     parser.add_argument("--hidden_size", type=int,
                         default=512)
     parser.add_argument("--max_length", type=int,
-                        default=15)
+                        default=25)
     parser.add_argument("--nepoch", type=int,
                         default=15)
     parser.add_argument("--lr", type=float,
                         default=0.001)
+    parser.add_argument("--beam_size", type=int,
+                        default=25)
 
     parser.add_argument("--encoder_save_path", type=str,
                         default="C:\\Users\\doris\\Downloads\\encoder.pth")
@@ -70,5 +72,5 @@ if __name__ == '__main__':
 
     # torch.cuda.empty_cache()
     train(encoder, decoder, train_data, val_data, device, args.lr, args.encoder_save_path, args.decoder_save_path, args.nepoch, args.log_save_path)
-    test(args.test_info, args.test_path, device, args.embed_size, args.hidden_size, args.max_length, args.batch_size, args.deterministic, args.num_workers,
-         args.encoder_save_path, args.decoder_save_path)
+    test(args.test_info, args.test_path, device, args.embed_size, args.hidden_size, args.max_length, batch_size=args.batch_size, beam_size=args.beam_size, deterministic=args.deterministic, num_workers=args.num_workers,
+         encoder_save_path=args.encoder_save_path, decoder_save_path=args.decoder_save_path)

@@ -16,9 +16,9 @@ class cocoTestData(torch.utils.data.Dataset):
     def __getitem__(self, index):
         id = self.ids[index]
         image_id = self.coco.loadAnns(id)[0]['image_id']
-        image_info = self.coco.loadImgs(image_id)
-        image_path = image_info[0]['file_name']
-        im = Image.open(self.train_path + '/' + image_path)
+        # image_info = self.coco.loadImgs(image_id)
+        # image_path = image_info[0]['file_name']
+        im = Image.open(self.train_path + '/' + image_id + '.jpg')
         # process gray picture to RGB picture
         image_dim_len = len(np.array(im).shape)
         if image_dim_len == 2:
