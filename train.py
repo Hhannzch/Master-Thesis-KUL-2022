@@ -4,11 +4,10 @@ from torch.nn.utils.rnn import pack_padded_sequence
 import numpy as np
 
 def train(encoder, decoder, train_data, validate_data, device, encoder_lr, decoder_lr, encoder_save_path, decoder_save_path, nepoch, log_save_path):
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss().to(device)
     # params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
-    params = list(decoder.parameters()) + list(encoder.linear.parameters())
-    encoder_optimizer = torch.optim.Adam(params, lr=encoder_lr)
-    decoder_optimizer = torch.optim.Adam(params, lr=decoder_lr)
+    encoder_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, decoder.parameters()), lr=encoder_lr)
+    decoder_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, decoder.parameters()), lr=decoder_lr)
     train_losses = []
     valid_losses = []
     print_loss = 0

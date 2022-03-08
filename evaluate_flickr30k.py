@@ -1,6 +1,6 @@
 from cocoTestDataloader import cocoTestData, collate_fn
 from model import Encoder
-from model import Decoder
+from model import DecoderWithAttention
 from voc_flickr30k import Voc
 import torch
 from pycocotools.coco import COCO
