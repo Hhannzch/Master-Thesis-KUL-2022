@@ -24,7 +24,7 @@ if __name__ == '__main__':
     parser.add_argument("--nmin", type=int,
                         default=50)
     parser.add_argument("--batch_size", type=int,
-                        default=32)
+                        default=1)
     parser.add_argument(
         "--deterministic", action="store_false", help="Whether to shuffle the data. Default is True.",
     )
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     parser.add_argument("--lr", type=float,
                         default=0.001)
     parser.add_argument("--beam_size", type=int,
-                        default=25)
+                        default=1)
 
     parser.add_argument("--encoder_save_path", type=str,
                         default="C:\\Users\\doris\\Downloads\\encoder.pth")
@@ -71,6 +71,6 @@ if __name__ == '__main__':
                       max_length=args.max_length).to(device)
 
     # torch.cuda.empty_cache()
-    train(encoder, decoder, train_data, val_data, device, args.lr, args.encoder_save_path, args.decoder_save_path, args.nepoch, args.log_save_path)
+    # train(encoder, decoder, train_data, val_data, device, args.lr, args.encoder_save_path, args.decoder_save_path, args.nepoch, args.log_save_path)
     test(args.test_info, args.test_path, device, args.embed_size, args.hidden_size, args.max_length, batch_size=args.batch_size, beam_size=args.beam_size, deterministic=args.deterministic, num_workers=args.num_workers,
          encoder_save_path=args.encoder_save_path, decoder_save_path=args.decoder_save_path)
