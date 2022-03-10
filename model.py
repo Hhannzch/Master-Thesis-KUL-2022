@@ -4,81 +4,38 @@ import torchvision.models as models
 from torch.nn.utils.rnn import pack_padded_sequence
 import torch
 
-class Encoder(nn.Module):
-    """
-    Encoder.
-    """
 
+class Encoder(nn.Module):
     def __init__(self, encoded_image_size=14):
         super(Encoder, self).__init__()
-        self.enc_image_size = encoded_image_size
-
-        resnet = models.resnet152(pretrained=True).to(device='cuda')  # pretrained ImageNet ResNet-101
-
-        # Remove linear and pool layers (since we're not doing classification)
+        resnet = models.resnet152(pretrained=True)
         modules = list(resnet.children())[:-2]
         self.resnet = nn.Sequential(*modules)
-
-        # Resize image to fixed size to allow input images of variable size
         self.adaptive_pool = nn.AdaptiveAvgPool2d((encoded_image_size, encoded_image_size))
 
-        self.fine_tune()
-
     def forward(self, images):
-        """
-        Forward propagation.
-        :param images: images, a tensor of dimensions (batch_size, 3, image_size, image_size)
-        :return: encoded images
-        """
-        out = self.resnet(images)  # (batch_size, 2048, image_size/32, image_size/32)
-        out = self.adaptive_pool(out)  # (batch_size, 2048, encoded_image_size, encoded_image_size)
-        out = out.permute(0, 2, 3, 1)  # (batch_size, encoded_image_size, encoded_image_size, 2048)
-        return out
-
-    def fine_tune(self, fine_tune=True):
-        """
-        Allow or prevent the computation of gradients for convolutional blocks 2 through 4 of the encoder.
-        :param fine_tune: Allow?
-        """
-        for p in self.resnet.parameters():
-            p.requires_grad = False
-        # If fine-tuning, only fine-tune convolutional blocks 2 through 4
-        for c in list(self.resnet.children())[5:]:
-            for p in c.parameters():
-                p.requires_grad = fine_tune
+        with torch.no_grad():
+            features = self.resnet(images)
+        features = self.adaptive_pool(features)
+        features = features.permute(0, 2, 3, 1)
+        return features
 
 
 class Attention(nn.Module):
-    """
-    Attention Network.
-    """
-
     def __init__(self, encoder_dim, decoder_dim, attention_dim):
-        """
-        :param encoder_dim: feature size of encoded images
-        :param decoder_dim: size of decoder's RNN
-        :param attention_dim: size of the attention network
-        """
         super(Attention, self).__init__()
-        self.encoder_att = nn.Linear(encoder_dim, attention_dim)  # linear layer to transform encoded image
-        self.decoder_att = nn.Linear(decoder_dim, attention_dim)  # linear layer to transform decoder's output
-        self.full_att = nn.Linear(attention_dim, 1)  # linear layer to calculate values to be softmax-ed
+        self.encoder_att = nn.Linear(encoder_dim, attention_dim)
+        self.decoder_att = nn.Linear(decoder_dim, attention_dim)
+        self.full_att = nn.Linear(attention_dim, 1)  # calculate values to be softmax
         self.relu = nn.ReLU()
-        self.softmax = nn.Softmax(dim=1)  # softmax layer to calculate weights
+        self.softmax = nn.Softmax(dim=1)
 
-    def forward(self, encoder_out, decoder_hidden):
-        """
-        Forward propagation.
-        :param encoder_out: encoded images, a tensor of dimension (batch_size, num_pixels, encoder_dim)
-        :param decoder_hidden: previous decoder output, a tensor of dimension (batch_size, decoder_dim)
-        :return: attention weighted encoding, weights
-        """
-        att1 = self.encoder_att(encoder_out)  # (batch_size, num_pixels, attention_dim)
-        att2 = self.decoder_att(decoder_hidden)  # (batch_size, attention_dim)
+    def forward(self, features, decoder_hidden):
+        att1 = self.encoder_att(features)
+        att2 = self.decoder_att(decoder_hidden)
         att = self.full_att(self.relu(att1 + att2.unsqueeze(1))).squeeze(2)  # (batch_size, num_pixels)
         alpha = self.softmax(att)  # (batch_size, num_pixels)
-        attention_weighted_encoding = (encoder_out * alpha.unsqueeze(2)).sum(dim=1)  # (batch_size, encoder_dim)
-
+        attention_weighted_encoding = (features * alpha.unsqueeze(2)).sum(dim=1)  # (batch_size, encoder_dim)
         return attention_weighted_encoding, alpha
 
 
@@ -171,7 +128,7 @@ class DecoderWithAttention(nn.Module):
         num_pixels = encoder_out.size(1)
 
         # Sort input data by decreasing lengths; why? apparent below
-        caption_lengths, sort_ind = caption_lengths.squeeze(1).sort(dim=0, descending=True)
+        caption_lengths, sort_ind = caption_lengths.sort(dim=0, descending=True)
         encoder_out = encoder_out[sort_ind]
         encoded_captions = encoded_captions[sort_ind]
 
@@ -208,76 +165,31 @@ class DecoderWithAttention(nn.Module):
         return predictions, encoded_captions, decode_lengths, alphas, sort_ind
 
 
-    # generate function: https://github.com/JazzikPeng/Show-Tell-Image-Caption-in-PyTorch/blob/master/SHOW_AND_TELL_CODE_FINAL_VERSION/model_bleu.py
-    def generate(self, features, states=None):
-        """Generate captions for given image features using greedy search."""
-        generate_word_ids = []
-        inputs = features.unsqueeze(1)
-        for i in range(self.max_length):
-            hiddens, states = self.lstm(inputs, states)          # hiddens: (batch_size, 1, hidden_size)
-            outputs = self.linear(hiddens.squeeze(1))            # outputs:  (batch_size, vocab_size)
-            _, predicted = outputs.max(1)                        # predicted: (batch_size)
-            generate_word_ids.append(predicted)
-            inputs = self.embed(predicted)
-            inputs = inputs.unsqueeze(1)
-        generate_word_ids = torch.stack(generate_word_ids, 1)
-        return generate_word_ids
+    def generate_beam(self, img_features, beam_size, voc, device):
+        encoder_out = img_features.view(1, -1, self.encoder_dim)
+        num_pixels = encoder_out.size(1)
+        encoder_out = encoder_out.expand(1, num_pixels, self.encoder_dim)
+        prev_words = torch.LongTensor([[1]] * 1).to(device)
+        seqs = prev_words
 
-    # ref: https://github.com/Moeinh77/Image-Captioning-with-Beam-Search/blob/master/main.ipynb
-    def generate_beam(self, features, beam_size, start_index, device):
-        start_word = torch.tensor([[start_index, 0.0]]).to(device)
-        while list(start_word[0][:-1].size())[0] < self.max_length:
-            inputs = features.unsqueeze(1)
-            states = None
-            hiddens, states = self.lstm(inputs, states)
-            temp = torch.tensor([]).to(device)
+        step = 1
+        h, c = self.init_hidden_state(encoder_out)
+
+        generate = torch.tensor([]).to(device)
+
+        while(step < 25):
+            embeddings = self.embedding(prev_words).squeeze(1)
+            awe, _ = self.attention(encoder_out, h)
+            gate = self.sigmoid(self.f_beta(h))
+            awe = gate * awe
+            h, c = self.decode_step(torch.cat([embeddings, awe], dim=1), (h, c))
+            scores = self.fc(h)
+            scores = nn.functional.log_softmax(scores, dim=1)
+            _, prev_words = scores.max(1)
+            generate = torch.cat((generate, prev_words)).to(device)
 
 
-            # start_word: tensor([[1.0000, -1.0119],
-            #         [2.0000, 3.3243],
-            #         [3.0000, 4.4325]], device='cuda:0')
-            for i,(s) in enumerate(start_word):
-                # s: tensor([1.,0.], device='cuda:0')
-                predicted = s[:-1] # predicted: tensor([1.]), all labels except the last probability
-                for p in predicted: # p: tensor(1) or tensor(33), the label of generated caption
-                    p = p.type(torch.IntTensor).to(device).unsqueeze(0)
-                    inputs = self.embed(p)
-                    inputs = inputs.unsqueeze(1)
-                    hiddens, states = self.lstm(inputs, states)
-                outputs = self.linear(hiddens.squeeze(1))
+            step = step + 1
 
-                softmax = torch.nn.Softmax(dim=1)
-                outputs_prob = softmax(outputs)
-                top_probs, top_labels = torch.topk(outputs_prob, beam_size) # top_preds.size(): batch_size x beam_size, top_labs.size(): batch_size x beam_size
-                # note: here the labels is the index in the outputs instead of voc_index
-                # make batch_size is 1
+        return generate
 
-                # top_probs: tensor([[0.6566, 0.0589]], device='cuda:0', grad_fn=<TopkBackward0>)
-                # top_label: tensor([[33, 72]], device='cuda:0')
-                # s: tensor([1., 0.], device='cuda:0')
-                top_probs = top_probs[0] # tensor([0.6566, 0.0589], device='cuda:0', grad_fn=<SelectBackward0>)
-                top_labels = top_labels[0] # tensor([33, 72], device='cuda:0')
-
-                for i, (pre) in enumerate(top_probs):
-                    next_cap, prob = s[:-1], s[-1]
-                    # next_cap: tensor([1.], device='cuda:0')
-                    # prob: tensor(0., device='cuda:0')
-                    next_word = top_labels[i] # tensor(33, device='cuda:0')
-                    next_word = next_word.unsqueeze(0) # tensor([33], device='cuda:0')
-                    next_cap = torch.cat((next_cap,next_word))
-                    # prob: tensor(0., device='cuda:0')
-                    # pre: tensor(0.6566, device='cuda:0', grad_fn=<UnbindBackward0>)
-                    pre = torch.tensor(pre.item()).to(device)
-                    prob += pre
-                    # next_cap： tensor([ 1., 33.], device='cuda:0')
-                    # prob: tensor(0.6566, device='cuda:0')
-                    prob = prob.unsqueeze(0) # tensor([0.6566], device='cuda:0')
-                    new = torch.cat((next_cap, prob))
-                    new = new.unsqueeze(0)
-                    temp = torch.cat((temp, new))
-            start_word = temp
-            start_word = sorted(start_word, reverse=True, key=lambda l: l[-1])
-            start_word = start_word[:beam_size]
-
-        start_word = start_word[0][:-1]
-        return start_word.unsqueeze(0)

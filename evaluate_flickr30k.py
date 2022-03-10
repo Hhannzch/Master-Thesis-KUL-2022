@@ -19,11 +19,10 @@ def read_voc():
 
 # ref: https://github.com/JazzikPeng/Show-Tell-Image-Caption-in-PyTorch/blob/master/SHOW_AND_TELL_CODE_FINAL_VERSION/model_bleu.py
 # ref: https://github.com/cocodataset/cocoapi/issues/343
-def test(test_info, test_path, device, embed_size, hidden_size, max_length, batch_size, beam_size, deterministic, num_workers, encoder_save_path, decoder_save_path):
+def test(test_info, test_path, encoder, decoder, device, max_length, batch_size, beam_size, deterministic, num_workers, encoder_save_path, decoder_save_path):
     voc = read_voc()
-    encoder = Encoder(embed_size=embed_size).eval()
-    decoder = Decoder(embed_size=embed_size, hidden_size=hidden_size, voc_size=len(voc),
-                      max_length=max_length).eval()
+    encoder = encoder.eval()
+    decoder = decoder.eval()
     encoder = encoder.to(device)
     decoder = decoder.to(device)
 
@@ -34,7 +33,7 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
     # creating coco-format dataset using flickr8k
     coco = COCO(test_info)
     testset = cocoTestData(coco, test_path, voc, transform = transforms.Compose([transforms.Resize((256,256)), transforms.ToTensor()]))
-    testset = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=deterministic, num_workers=num_workers, collate_fn=collate_fn)
+    testset = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=deterministic, num_workers=num_workers, collate_fn=collate_fn)
 
 
     results = []
@@ -47,15 +46,17 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
                 features = encoder(images)
                 # generate_word_ids = decoder.generate(features)
 
-                generate_word_ids = decoder.generate_beam(features, beam_size, 1, device)
+                generate_word_ids = decoder.generate_beam(features, 1, voc, device)
 
                 generate_word_ids = generate_word_ids.cpu().numpy()
                 generate_captions = []
 
                 generate_word_ids = list(generate_word_ids)
+                generate_word_ids = [generate_word_ids]
                 for generate_word_id in generate_word_ids:
                     generate_caption = ""
                     for word_id in generate_word_id:
+                        word_id = int(word_id)
                         word = voc.index2word[word_id]
                         if word == '<end>':
                             break

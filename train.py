@@ -22,12 +22,21 @@ def train(encoder, decoder, train_data, validate_data, device, encoder_lr, decod
             for i, (images, captions, length) in enumerate(train_data):
                 images = images.to(device)
                 captions = captions.to(device)
-                targets = pack_padded_sequence(captions, length, batch_first=True)[0]
+                # targets = pack_padded_sequence(captions, length, batch_first=True)[0].to(device)
 
                 features = encoder(images)
                 # features = torch.tensor(features).to(device).long()
-                scores, outputs, decode_lengths, alphas, sort_ind = decoder(features, captions, length)
-                loss = criterion(outputs, targets)
+                tensorlength = torch.tensor(length).to(device)
+                scores, caps_sorted, decode_lengths, alphas, sort_ind = decoder(features, captions, tensorlength)
+                targets = caps_sorted[:, 1:]
+                scores = pack_padded_sequence(scores, decode_lengths, batch_first=True)[0]
+                targets = pack_padded_sequence(targets, decode_lengths, batch_first=True)[0]
+
+                # Calculate loss
+                loss = criterion(scores, targets)
+                alpha_c = 1
+                # Add doubly stochastic attention regularization
+                loss += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
 
                 encoder_optimizer.zero_grad()
                 decoder_optimizer.zero_grad()
@@ -51,12 +60,21 @@ def train(encoder, decoder, train_data, validate_data, device, encoder_lr, decod
                 for i, (images, captions, length) in enumerate(validate_data):
                     images = images.to(device)
                     captions = captions.to(device)
-                    targets = pack_padded_sequence(captions, length, batch_first=True)[0]
+                    # targets = pack_padded_sequence(captions, length, batch_first=True)[0]
 
                     features = encoder(images)
                     # features = torch.tensor(features).to(device).long()
-                    outputs = decoder(features, captions, length)
-                    loss = criterion(outputs, targets)
+                    tensorlength = torch.tensor(length).to(device)
+                    scores, caps_sorted, decode_lengths, alphas, sort_ind = decoder(features, captions, tensorlength)
+                    targets = caps_sorted[:, 1:]
+                    scores = pack_padded_sequence(scores, decode_lengths, batch_first=True)[0]
+                    targets = pack_padded_sequence(targets, decode_lengths, batch_first=True)[0]
+
+                    # Calculate loss
+                    loss = criterion(scores, targets)
+                    alpha_c = 1
+                    # Add doubly stochastic attention regularization
+                    loss += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
                     valid_losses.append(loss.item())
 
             train_loss = np.average(train_losses)

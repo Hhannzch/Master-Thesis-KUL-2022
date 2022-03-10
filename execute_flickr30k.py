@@ -83,15 +83,10 @@ if __name__ == '__main__':
                                    decoder_dim=args.decoder_dim,
                                    vocab_size=len(voc),
                                    dropout=args.dropout,
-                                   )
-    decoder_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, decoder.parameters()),
-                                         lr=args.decoder_lr)
-    encoder = Encoder()
-    encoder.fine_tune(args.fine_tune_encoder)
-    encoder_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, encoder.parameters()),
-                                         lr=args.encoder_lr) if args.fine_tune_encoder else None
+                                   ).to(device)
+    encoder = Encoder().to(device)
 
     # torch.cuda.empty_cache()
-    train(encoder, decoder, train_data, val_data, device, args.encoder_lr, args.decoder_lr, args.encoder_save_path, args.decoder_save_path, args.nepoch, args.log_save_path)
-    # test(args.test_info, args.test_path, device, args.embed_size, args.hidden_size, args.max_length, batch_size=args.batch_size, beam_size=args.beam_size, deterministic=args.deterministic, num_workers=args.num_workers,
-    #      encoder_save_path=args.encoder_save_path, decoder_save_path=args.decoder_save_path)
+    # train(encoder, decoder, train_data, val_data, device, args.encoder_lr, args.decoder_lr, args.encoder_save_path, args.decoder_save_path, args.nepoch, args.log_save_path)
+    test(args.test_info, args.test_path, encoder, decoder, device, args.max_length, batch_size=args.batch_size, beam_size=args.beam_size, deterministic=args.deterministic, num_workers=args.num_workers,
+         encoder_save_path=args.encoder_save_path, decoder_save_path=args.decoder_save_path)
