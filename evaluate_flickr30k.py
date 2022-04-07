@@ -7,6 +7,7 @@ from pycocotools.coco import COCO
 from torchvision import transforms
 from pycocoevalcap.eval import COCOEvalCap
 import json
+# from dataloader import cocoData, collate_fn
 
 
 def read_voc():
@@ -34,13 +35,15 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
     # creating coco-format dataset using flickr8k
     coco = COCO(test_info)
     testset = cocoTestData(coco, test_path, voc, transform = transforms.Compose([transforms.Resize((256,256)), transforms.ToTensor()]))
+    # testset = cocoData(coco, test_path, voc,
+    #                        transform=transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor()]))
     testset = torch.utils.data.DataLoader(testset, batch_size=batch_size, shuffle=deterministic, num_workers=num_workers, collate_fn=collate_fn)
 
 
     results = []
     ids_helper = set()
     total = len(testset)
-    for i, (images, ids) in enumerate(testset):
+    for i, (images,ids) in enumerate(testset):
         for j in range(len(ids)):
             if ids[j] not in ids_helper:
                 images = images.to(device)

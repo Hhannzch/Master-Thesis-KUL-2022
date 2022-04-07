@@ -38,24 +38,34 @@ class cocoData(torch.utils.data.Dataset):
         caption.append(self.voc('<end>'))
 
         caption_final = torch.Tensor(caption)
-        return im, caption_final, image_id
+        # return im, caption_final, image_id
+        return im, image_id
 
     def __len__(self):
         return len(self.ids)
 
+# def collate_fn(data):
+#     # this method is used for construct mini-batch tensors from several (im, caption_final)
+#     # sort these data by the length of caption
+#     data.sort(key=lambda x: len(x[1]), reverse=True)
+#     images, captions, image_ids = zip(*data) # unzip data
+#     images = torch.stack(images, 0)
+#     lengths = [len(cap) for cap in captions]
+#     targets = torch.zeros(len(captions), max(lengths)).long()
+#     # padding
+#     for i, cap in enumerate(captions):
+#         end = lengths[i]
+#         targets[i, :end] = cap[:end]
+#     # return images, targets, lengths, image_ids
+#     return images, image_ids
+
 def collate_fn(data):
     # this method is used for construct mini-batch tensors from several (im, caption_final)
     # sort these data by the length of caption
-    data.sort(key=lambda x: len(x[1]), reverse=True)
-    images, captions, image_ids = zip(*data) # unzip data
+    data.sort(key=lambda x: len(x), reverse=True)
+    images, image_ids = zip(*data)  # unzip data
     images = torch.stack(images, 0)
-    lengths = [len(cap) for cap in captions]
-    targets = torch.zeros(len(captions), max(lengths)).long()
-    # padding
-    for i, cap in enumerate(captions):
-        end = lengths[i]
-        targets[i, :end] = cap[:end]
-    return images, targets, lengths, image_ids
+    return images, image_ids
 
 
 

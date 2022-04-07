@@ -21,6 +21,10 @@ if __name__ == '__main__':
                         default="C:\\Users\\doris\\Downloads\\flickr8k\\test_caption_coco_format.json")
     parser.add_argument("--test_path", type=str,
                         default="C:\\Users\\doris\\Downloads\\flickr8k\\Images")
+    # parser.add_argument("--test_info", type=str,
+    #                     default="C:\\Users\\doris\\Downloads\\coco_val\\annotations_trainval2017\\annotations\\captions_val2017.json")
+    # parser.add_argument("--test_path", type=str,
+    #                     default="C:\\Users\\doris\\Downloads\\coco_val\\val2017\\val2017")
     parser.add_argument("--nmin", type=int,
                         default=50)
     parser.add_argument("--batch_size", type=int,
@@ -44,9 +48,9 @@ if __name__ == '__main__':
                         default=1)
 
     parser.add_argument("--encoder_save_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\encoder.pth")
+                        default="C:\\Users\\doris\\Downloads\\baseline-result\\result_show_and_tell\\encoder.pth")
     parser.add_argument("--decoder_save_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\decoder.pth")
+                        default="C:\\Users\\doris\\Downloads\\baseline-result\\result_show_and_tell\\decoder.pth")
     parser.add_argument("--log_save_path", type=str,
                         default="C:\\Users\\doris\\Downloads\\log.txt")
 
