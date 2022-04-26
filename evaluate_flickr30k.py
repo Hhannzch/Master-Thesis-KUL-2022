@@ -55,7 +55,7 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
                 generate_word_ids = generate_word_ids.cpu().numpy()
                 generate_captions = []
 
-                generate_word_ids = list(generate_word_ids)
+                # generate_word_ids = list(generate_word_ids)
                 for generate_word_id in generate_word_ids:
                     generate_caption = ""
                     for word_id in generate_word_id:

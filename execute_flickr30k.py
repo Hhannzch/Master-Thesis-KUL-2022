@@ -18,9 +18,9 @@ if __name__ == '__main__':
     parser.add_argument("--image_path", type=str,
                         default="C:\\Users\\doris\\Downloads\\flickr30k\\images")
     parser.add_argument("--test_info", type=str,
-                        default="C:\\Users\\doris\\Downloads\\flickr8k\\test_caption_coco_format.json")
+                        default="C:\\Users\\doris\\Downloads\\flickr30k\\annotations\\test_caption_coco_format_100.json")
     parser.add_argument("--test_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\flickr8k\\Images")
+                        default="C:\\Users\\doris\\Downloads\\flickr30k\\images")
     # parser.add_argument("--test_info", type=str,
     #                     default="C:\\Users\\doris\\Downloads\\coco_val\\annotations_trainval2017\\annotations\\captions_val2017.json")
     # parser.add_argument("--test_path", type=str,
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     parser.add_argument("--nmin", type=int,
                         default=50)
     parser.add_argument("--batch_size", type=int,
-                        default=1)
+                        default=16)
     parser.add_argument(
         "--deterministic", action="store_false", help="Whether to shuffle the data. Default is True.",
     )
@@ -48,9 +48,9 @@ if __name__ == '__main__':
                         default=1)
 
     parser.add_argument("--encoder_save_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\baseline-result\\result_show_and_tell\\encoder.pth")
+                        default="C:\\Users\\doris\\Downloads\\encoder.pth")
     parser.add_argument("--decoder_save_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\baseline-result\\result_show_and_tell\\decoder.pth")
+                        default="C:\\Users\\doris\\Downloads\\decoder.pth")
     parser.add_argument("--log_save_path", type=str,
                         default="C:\\Users\\doris\\Downloads\\log.txt")
 
@@ -61,8 +61,10 @@ if __name__ == '__main__':
     dataset = flickr30kData(args.image_path, args.anns_path, voc,
                        transform=transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor()]))
     dataset_length = len(dataset)
-    val_data_len = int(dataset_length/10)
+    val_data_len = (int(dataset_length/40))*4
     train_data_len = dataset_length - val_data_len
+    print(train_data_len)
+    print(val_data_len)
     train_data, val_data = torch.utils.data.random_split(dataset, [train_data_len, val_data_len])
     train_data = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=args.deterministic,
                                              num_workers=args.num_workers, collate_fn=collate_fn)
