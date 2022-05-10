@@ -111,9 +111,13 @@ if __name__ == '__main__':
 
     encoder.load_state_dict(torch.load(args.encoder_save_path, map_location=device))
     decoder.load_state_dict(torch.load(args.decoder_save_path, map_location=device))
-    # train_value(train_data, val_data, 0.00001, args.value_save_path, encoder, decoder, voc, 50, args.max_length)
-    curriculumLearning_RL(train_data, val_data, args.lr, args.encoder_save_new_path, args.decoder_save_new_path, args.value_save_new_path,
-                          encoder, decoder, args.value_save_path, voc, args.nepoch, args.max_length)
+    train_value(train_data, val_data, 0.00001, args.value_save_path, encoder, decoder, voc, 50, args.max_length)
+    # curriculumLearning_RL(train_data, val_data, args.lr, args.encoder_save_new_path, args.decoder_save_new_path, args.value_save_new_path,
+    #                       encoder, decoder, args.value_save_path, voc, args.nepoch, args.max_length)
+
+
+
+
     # for i, (images, captions, length, clip_images, raw_captions) in enumerate(train_data):
     #     clip_model, preprocess = clip.load("ViT-B/32", device='cuda')
     #     # images = images.to('cuda')

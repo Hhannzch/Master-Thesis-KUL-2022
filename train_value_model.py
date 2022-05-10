@@ -17,8 +17,12 @@ import torch.optim as optim
 def turnIdsToSentence(generate_ids_input, voc):
     generate_ids = generate_ids_input.cpu().numpy()
     generate_captions = []
+    flag = 0
     for generate_word_id in generate_ids:
         generate_caption = ""
+        if (len(generate_word_id) > 75):
+            flag = 1
+            break
         for word_id in generate_word_id:
             word = voc.index2word[word_id]
             if word == '<end>':
@@ -27,14 +31,16 @@ def turnIdsToSentence(generate_ids_input, voc):
                 # if ((word == '.') | (word == ',') | (word == '``')):
                 #     # generate_caption = generate_caption + word
                 #     generate_caption = generate_caption
-                if word == '<start>':
+                if (word == '<start>') | (word == '<pad>'):
                     generate_caption = generate_caption
                 else:
                     generate_caption = generate_caption + ' ' + word
         generate_captions.append(generate_caption)
-
-    clip_captions = clip.tokenize(generate_captions)
-    return clip_captions
+    if flag == 0:
+        clip_captions = clip.tokenize(generate_captions)
+        return clip_captions
+    else:
+        return []
 
 
 
