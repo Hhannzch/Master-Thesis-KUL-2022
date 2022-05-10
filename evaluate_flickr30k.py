@@ -63,10 +63,10 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
                         if word == '<end>':
                             break
                         else:
-                            if ((word == '.') | (word == ',') | (word == '``')):
-                                # generate_caption = generate_caption + word
-                                generate_caption = generate_caption
-                            elif word == '<start>':
+                            # if ((word == '.') | (word == ',') | (word == '``')):
+                            #     # generate_caption = generate_caption + word
+                            #     generate_caption = generate_caption
+                            if word == '<start>':
                                 generate_caption = generate_caption
                             else:
                                 generate_caption = generate_caption + ' ' + word

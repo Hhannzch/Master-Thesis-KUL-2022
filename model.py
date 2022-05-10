@@ -37,8 +37,23 @@ class Decoder(nn.Module):
     packed = pack_padded_sequence(embeddings, lengths, batch_first=True) 
     hiddens, _ = self.lstm(packed)
     outputs = self.linear(hiddens[0])
-    # print(outputs.shape)
     return outputs
+
+
+  def forward_cl(self, features, captions):
+      inputs = features.unsqueeze(1)
+      states = None
+      hidden, states = self.lstm(inputs, states)
+      for i,words in enumerate(captions.t()): # word: (batch_size)
+          inputs = self.embed(words)
+          inputs = inputs.unsqueeze(1)
+          hiddens, states = self.lstm(inputs, states)
+      outputs = self.linear(hiddens.squeeze(1))
+      softmax = torch.nn.Softmax(dim=1)
+      outputs_prob = softmax(outputs)
+
+      return outputs_prob
+
 
   # generate function: https://github.com/JazzikPeng/Show-Tell-Image-Caption-in-PyTorch/blob/master/SHOW_AND_TELL_CODE_FINAL_VERSION/model_bleu.py
   def generate(self, features, states=None):

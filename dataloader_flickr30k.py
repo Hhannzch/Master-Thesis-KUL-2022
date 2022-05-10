@@ -18,6 +18,7 @@ class flickr30kData(torch.utils.data.Dataset):
         image_id = str(self.anns[0][index])
         image_id = image_id.split('#')[0]
         im = Image.open(self.image_path + '\\' + image_id)
+        im_out = im
         # process gray picture to RGB picture
         image_dim_len = len(np.array(im).shape)
         if image_dim_len == 2:
@@ -33,28 +34,85 @@ class flickr30kData(torch.utils.data.Dataset):
         tokens = nltk.tokenize.word_tokenize(caption_pre.lower())
         caption = []
         caption.append(self.voc('<start>'))
+
         for token in tokens:
             caption.append(self.voc(token))
         caption.append(self.voc('<end>'))
         caption_final = torch.Tensor(caption)
-        return im, caption_final
+        return im, caption_final, caption_pre, im_out
 
     def __len__(self):
         return len(self.anns[1][:])
 
-def collate_fn(data):
-    # this method is used for construct mini-batch tensors from several (im, caption_final)
-    # sort these data by the length of caption
-    data.sort(key=lambda x: len(x[1]), reverse=True)
-    images, captions = zip(*data) # unzip data
-    images = torch.stack(images, 0)
-    lengths = [len(cap) for cap in captions]
-    targets = torch.zeros(len(captions), max(lengths)).long()
-    # padding
-    for i, cap in enumerate(captions):
-        end = lengths[i]
-        targets[i, :end] = cap[:end]
-    return images, targets, lengths
+
+class collater():
+    def __init__(self, preprocess):
+        self.preprocess = preprocess
+
+    def __call__(self, data):
+        data.sort(key=lambda x: len(x[1]), reverse=True)
+        images, captions, raw_captions, raw_images = zip(*data) # unzip data
+        images = torch.stack(images, 0)
+        lengths = [len(cap) for cap in captions]
+
+        clip_images = torch.stack([self.preprocess(raw_image) for raw_image in raw_images], 0)
+
+        targets = torch.zeros(len(captions), max(lengths)).long()
+        # padding
+        for i, cap in enumerate(captions):
+            if lengths[i] >= 76:
+                lengths[i] = 30
+                change_raw_caption = raw_captions[i]
+                change_raw_captions = change_raw_caption.split(" ")[:30]
+                str = " "
+                temp = str.join(change_raw_captions)
+                print(temp)
+
+                raw_captions = list(raw_captions)
+                raw_captions[i] = temp
+                raw_captions = tuple(raw_captions)
+
+                print(raw_captions[i])
+
+
+            end = lengths[i]
+            targets[i, :end] = cap[:end]
+
+        return images, targets, lengths, clip_images, raw_captions
+
+
+
+# def collate_fn(data, preprocess):
+#     # this method is used for construct mini-batch tensors from several (im, caption_final)
+#     # sort these data by the length of caption
+#
+#     data.sort(key=lambda x: len(x[1]), reverse=True)
+#     images, captions, raw_captions, raw_images = zip(*data) # unzip data
+#     images = torch.stack(images, 0)
+#     lengths = [len(cap) for cap in captions]
+#
+#     clip_images = torch.stack([preprocess(raw_image) for raw_image in raw_images], 0)
+#
+#     targets = torch.zeros(len(captions), max(lengths)).long()
+#     # padding
+#     for i, cap in enumerate(captions):
+#         if lengths[i] >= 76:
+#             lengths[i] = 76
+#             change_raw_caption = raw_captions[i]
+#             change_raw_captions = change_raw_caption.split(" ")[:76]
+#             str = " "
+#             # raw_captions = list(raw_captions)
+#             raw_captions[i] = str.join(change_raw_captions);
+#             # raw_captions = tuple(raw_captions)
+#
+#
+#         end = lengths[i]
+#         targets[i, :end] = cap[:end]
+#
+#
+#
+#
+#     return images, targets, lengths, clip_images, raw_captions
 
 
 

@@ -44,7 +44,7 @@ def build_voc(path, nmin): # path is annotations path
             words.append(word)
 
     voc = Voc()
-    voc.add_word('<pad>')
+    voc.add_word('*')
     voc.add_word('<start>')
     voc.add_word('<end>')
     voc.add_word('<unknown>')
