@@ -51,7 +51,7 @@ if __name__ == '__main__':
     parser.add_argument("--hidden_size", type=int,
                         default=512)
     parser.add_argument("--max_length", type=int,
-                        default=25)
+                        default=20)
     parser.add_argument("--nepoch", type=int,
                         default=15)
     parser.add_argument("--lr", type=float,
@@ -111,9 +111,9 @@ if __name__ == '__main__':
 
     encoder.load_state_dict(torch.load(args.encoder_save_path, map_location=device))
     decoder.load_state_dict(torch.load(args.decoder_save_path, map_location=device))
-    train_value(train_data, val_data, 0.00001, args.value_save_path, encoder, decoder, voc, 50, args.max_length)
-    # curriculumLearning_RL(train_data, val_data, args.lr, args.encoder_save_new_path, args.decoder_save_new_path, args.value_save_new_path,
-    #                       encoder, decoder, args.value_save_path, voc, args.nepoch, args.max_length)
+    # train_value(train_data, val_data, 0.00001, args.value_save_path, encoder, decoder, voc, 50, args.max_length)
+    curriculumLearning_RL(train_data, val_data, args.lr, args.encoder_save_new_path, args.decoder_save_new_path, args.value_save_new_path,
+                          encoder, decoder, args.value_save_path, voc, args.nepoch, args.max_length)
 
 
 

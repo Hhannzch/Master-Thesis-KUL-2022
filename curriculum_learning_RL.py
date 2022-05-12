@@ -38,7 +38,7 @@ def buildNewData(images, captions, clip_images, raw_captions, length, level):
     # delete the captions which is not longer than level, extract the index
     index = []
     for i in range(len(length)):
-        if length[i] > (level+1):
+        if (length[i] > (level+1)) & (length[i] < 30):
             index.append(i)
 
     # get the corresponding images output
@@ -93,7 +93,7 @@ def curriculumLearning_RL(train_data, validate_data, lr, encoder_save_path, deco
     acNetwork = ActorCriticNetwork(valueNetwork, encoder, decoder).to(device)
     optimizer = optim.Adam(acNetwork.parameters(), lr=lr)
 
-    curriculum = [5, 10, 15, 20]
+    curriculum = [5, 9, 12, 14]
 
     for level in curriculum:
         print_loss = 0
@@ -134,7 +134,6 @@ def curriculumLearning_RL(train_data, validate_data, lr, encoder_save_path, deco
                     # captions_in[0]: tensor([  1,   4,  37,  39,   4,  40, 216,   7, 275, 949, 197,   4, 404, 239,
                     #          15,   3,   4, 272, 197,  18, 567,  13,   2], device='cuda:0')
                     captions_in = torch.cat((captions_in.t(),actions)).t()
-
                     # log_prob should be a (batch_size)
                     log_probs = []
                     for a in range(len(actions_int)):

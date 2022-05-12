@@ -17,12 +17,8 @@ import torch.optim as optim
 def turnIdsToSentence(generate_ids_input, voc):
     generate_ids = generate_ids_input.cpu().numpy()
     generate_captions = []
-    flag = 0
     for generate_word_id in generate_ids:
         generate_caption = ""
-        if (len(generate_word_id) > 75):
-            flag = 1
-            break
         for word_id in generate_word_id:
             word = voc.index2word[word_id]
             if word == '<end>':
@@ -36,11 +32,8 @@ def turnIdsToSentence(generate_ids_input, voc):
                 else:
                     generate_caption = generate_caption + ' ' + word
         generate_captions.append(generate_caption)
-    if flag == 0:
-        clip_captions = clip.tokenize(generate_captions)
-        return clip_captions
-    else:
-        return []
+    clip_captions = clip.tokenize(generate_captions)
+    return clip_captions
 
 
 
@@ -136,8 +129,3 @@ def train_value(train_data, validate_data, lr, value_save_path, policy_encoder, 
         else:
             print("Early stopping with best_acc: ", best_loss)
             break
-
-
-
-
-
