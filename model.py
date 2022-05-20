@@ -267,6 +267,7 @@ class Decoder(nn.Module):
     start_word = start_word[0][:-1]
     return start_word.unsqueeze(0)
 
+  # unfinished
   def generate_batch(self, images, features, beam_size, start_index, valueNetwork, device):
     start_word = torch.tensor([[start_index, 0.0]]).to(device)
     valueNetwork = valueNetwork.to(device)
