@@ -7,7 +7,8 @@ import nltk
 
 class cocoTestData(torch.utils.data.Dataset):
     def __init__(self, coco, train_path, voc, transform=None):
-        self.ids = list(coco.anns.keys())
+        self.ids = sorted(list(set(list(coco.anns.keys()))))
+        # self.ids = list(coco.anns.keys())
         self.coco = coco
         self.train_path = train_path
         self.voc = voc

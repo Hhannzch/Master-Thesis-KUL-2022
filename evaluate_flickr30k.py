@@ -20,7 +20,7 @@ def read_voc():
 
 # ref: https://github.com/JazzikPeng/Show-Tell-Image-Caption-in-PyTorch/blob/master/SHOW_AND_TELL_CODE_FINAL_VERSION/model_bleu.py
 # ref: https://github.com/cocodataset/cocoapi/issues/343
-def test(test_info, test_path, device, embed_size, hidden_size, max_length, batch_size, beam_size, deterministic, num_workers, encoder_save_path, decoder_save_path):
+def test(test_info, test_path, device, embed_size, hidden_size, max_length, batch_size, beam_size, deterministic, num_workers, encoder_save_path, decoder_save_path, valueNetwork):
     voc = read_voc()
     encoder = Encoder(embed_size=embed_size).eval()
     decoder = Decoder(embed_size=embed_size, hidden_size=hidden_size, voc_size=len(voc),
@@ -48,9 +48,10 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
             if ids[j] not in ids_helper:
                 images = images.to(device)
                 features = encoder(images)
-                # generate_word_ids = decoder.generate(features)
+                generate_word_ids = decoder.generate(features)
+                # generate_word_ids = decoder.generate_beam(features, beam_size, batch_size, device)
 
-                generate_word_ids = decoder.generate_beam(features, beam_size, 1, device)
+                # generate_word_ids = decoder.generate_rl(images, features, beam_size, 1, valueNetwork, device)
 
                 generate_word_ids = generate_word_ids.cpu().numpy()
                 generate_captions = []

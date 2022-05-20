@@ -13,6 +13,7 @@ from train_reward_model import train_reward
 from train_value_model import train_value
 import clip
 from curriculum_learning_RL import curriculumLearning_RL
+from value_model import ValueNetwork
 
 # def getData(train_data, val_data):
 #     train_data = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=args.deterministic,
@@ -57,7 +58,7 @@ if __name__ == '__main__':
     parser.add_argument("--lr", type=float,
                         default=0.001)
     parser.add_argument("--beam_size", type=int,
-                        default=1)
+                        default=5)
 
     parser.add_argument("--encoder_save_path", type=str,
                         default="C:\\Users\\doris\\Downloads\\encoder.pth")
@@ -82,7 +83,8 @@ if __name__ == '__main__':
 
     voc = build_voc(args.anns_path, args.nmin)
     dataset = flickr30kData(args.image_path, args.anns_path, voc,
-                       transform=transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor()]))
+                       transform=transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor(),
+                                                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]))
     dataset_length = len(dataset)
     val_data_len = (int(dataset_length/40))*4
     train_data_len = dataset_length - val_data_len
@@ -109,14 +111,20 @@ if __name__ == '__main__':
     #      encoder_save_path=args.encoder_save_path, decoder_save_path=args.decoder_save_path)
     # train_reward(train_data, val_data, 0.0001, args.reward_save_path, len(voc), 50)
 
-    encoder.load_state_dict(torch.load(args.encoder_save_path, map_location=device))
-    decoder.load_state_dict(torch.load(args.decoder_save_path, map_location=device))
+    # encoder.load_state_dict(torch.load(args.encoder_save_path, map_location=device))
+    # decoder.load_state_dict(torch.load(args.decoder_save_path, map_location=device))
     # train_value(train_data, val_data, 0.00001, args.value_save_path, encoder, decoder, voc, 50, args.max_length)
-    curriculumLearning_RL(train_data, val_data, args.lr, args.encoder_save_new_path, args.decoder_save_new_path, args.value_save_new_path,
-                          encoder, decoder, args.value_save_path, voc, args.nepoch, args.max_length)
 
-
-
+    # curriculumLearning_RL(train_data, val_data, args.lr, args.encoder_save_new_path, args.decoder_save_new_path, args.value_save_new_path,
+    #                       encoder, decoder, args.value_save_path, voc, args.nepoch, args.max_length)
+    valueNetwork = ValueNetwork(len(voc))
+    valueNetwork.load_state_dict(torch.load(args.value_save_new_path, map_location=device))
+    test(args.test_info, args.test_path, device, args.embed_size, args.hidden_size, args.max_length,
+         batch_size=args.batch_size, beam_size=args.beam_size, deterministic=args.deterministic,
+         num_workers=args.num_workers,
+         encoder_save_path=args.encoder_save_new_path, decoder_save_path=args.decoder_save_new_path, valueNetwork=valueNetwork)
+         # encoder_save_path=args.encoder_save_path, decoder_save_path=args.decoder_save_path,
+         # valueNetwork=valueNetwork)
 
     # for i, (images, captions, length, clip_images, raw_captions) in enumerate(train_data):
     #     clip_model, preprocess = clip.load("ViT-B/32", device='cuda')

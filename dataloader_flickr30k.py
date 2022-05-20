@@ -80,6 +80,20 @@ class collater():
 
         return images, targets, lengths, clip_images, raw_captions
 
+def collate_fn_train(data):
+    # this method is used for construct mini-batch tensors from several (im, caption_final)
+    # sort these data by the length of caption
+    data.sort(key=lambda x: len(x[1]), reverse=True)
+    images, captions, _, _ = zip(*data) # unzip data
+    images = torch.stack(images, 0)
+    lengths = [len(cap) for cap in captions]
+    targets = torch.zeros(len(captions), max(lengths)).long()
+    # padding
+    for i, cap in enumerate(captions):
+        end = lengths[i]
+        targets[i, :end] = cap[:end]
+    return images, targets, lengths
+
 
 
 # def collate_fn(data, preprocess):
