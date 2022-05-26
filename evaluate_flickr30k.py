@@ -20,7 +20,7 @@ def read_voc():
 
 # ref: https://github.com/JazzikPeng/Show-Tell-Image-Caption-in-PyTorch/blob/master/SHOW_AND_TELL_CODE_FINAL_VERSION/model_bleu.py
 # ref: https://github.com/cocodataset/cocoapi/issues/343
-def test(test_info, test_path, device, embed_size, hidden_size, max_length, batch_size, beam_size, deterministic, num_workers, encoder_save_path, decoder_save_path, valueNetwork):
+def test(test_info, test_path, device, embed_size, hidden_size, max_length, batch_size, beam_size, deterministic, num_workers, candidate_range, alpha, encoder_save_path, decoder_save_path, valueNetwork):
     voc = read_voc()
     encoder = Encoder(embed_size=embed_size).eval()
     decoder = Decoder(embed_size=embed_size, hidden_size=hidden_size, voc_size=len(voc),
@@ -34,7 +34,7 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
     # ref: https://github.com/jontooy/vl_demos/blob/master/Flickr8k.ipynb
     # creating coco-format dataset using flickr8k
     coco = COCO(test_info)
-    testset = cocoTestData(coco, test_path, voc, transform = transforms.Compose([transforms.Resize((256,256)), transforms.ToTensor()]))
+    testset = cocoTestData(coco, test_path, voc, transform = transforms.Compose([transforms.Resize((256,256)), transforms.ToTensor(), transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]))
     # testset = cocoData(coco, test_path, voc,
     #                        transform=transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor()]))
     testset = torch.utils.data.DataLoader(testset, batch_size=1, shuffle=deterministic, num_workers=num_workers, collate_fn=collate_fn)
@@ -48,10 +48,9 @@ def test(test_info, test_path, device, embed_size, hidden_size, max_length, batc
             if ids[j] not in ids_helper:
                 images = images.to(device)
                 features = encoder(images)
-                generate_word_ids = decoder.generate(features)
-                # generate_word_ids = decoder.generate_beam(features, beam_size, batch_size, device)
+                # generate_word_ids = decoder.generate_beam(features, beam_size, 1, device)
 
-                # generate_word_ids = decoder.generate_rl(images, features, beam_size, 1, valueNetwork, device)
+                generate_word_ids = decoder.generate_rl(images, features, len(voc), candidate_range, beam_size, alpha, 1, valueNetwork, device)
 
                 generate_word_ids = generate_word_ids.cpu().numpy()
                 generate_captions = []

@@ -37,12 +37,14 @@ def turnIdsToSentence(generate_ids_input, voc):
 
 
 
-def train_value(train_data, validate_data, lr, value_save_path, policy_encoder, policy_decoder, voc, nepoch, max_len):
+def train_value(train_data, validate_data, lr, value_save_path, policy_encoder, policy_decoder, voc, nepoch, max_len, log_save_path):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     voc_len = len(voc)
     valueNetwork = ValueNetwork(voc_len).to(device)
     optimizer = optim.Adam(valueNetwork.parameters(), lr=lr)
     clip_model, _ = clip.load("ViT-B/32", device=device)
+    logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
+    logit_scale = logit_scale.exp().to(device)
 
     for param in policy_encoder.parameters():
         param.requires_grad = False
@@ -54,78 +56,89 @@ def train_value(train_data, validate_data, lr, value_save_path, policy_encoder, 
 
     criterion = nn.MSELoss().to(device)
 
-    train_losses = []
-    valid_losses = []
     print_loss = 0
     best_loss = float('inf')
 
-    for epoch in range(nepoch):
-        valueNetwork.train()
-        for i, (images, captions, length, clips_image, raw_captions) in enumerate(train_data):
-            if len(images) > 1:
-                images = images.to(device)
-                captions = captions.to(device)
-                clips_image = clips_image.to(device)
+    with open(log_save_path, "w") as f:
+        for epoch in range(nepoch):
+            train_losses = []
+            valid_losses = []
+            valueNetwork.train()
+            for i, (images, captions, length, image_features, caption_features) in enumerate(train_data):
+                if len(images) > 1:
+                    images = images.to(device)
+                    captions = captions.to(device)
+                    image_features = image_features.to(device)
+                    caption_features = caption_features.to(device)
 
-                features = policy_encoder(images)
-                generated_word_ids = policy_decoder.generate(features) # generated_word_ids: (batch_size, max_len)
+                    features = policy_encoder(images)
+                    generated_word_ids = policy_decoder.generate(features) # generated_word_ids: (batch_size, max_len)
 
-                with torch.no_grad():
-                    clip_captions = turnIdsToSentence(generated_word_ids, voc).to(device)
-                    text = clip.tokenize(raw_captions).to(device)
-                    logits_per_image, _ = clip_model(clips_image, clip_captions)
-                    ref_logits_per_image, _ = clip_model(clips_image, text)
+                    # offline, seperate script
+                    with torch.no_grad():
+                        generated_captions = turnIdsToSentence(generated_word_ids, voc).to(device)
+                        generated_captions_features = clip_model.encode_text(generated_captions)
+                        generated_captions_features = generated_captions_features / generated_captions_features.norm(dim=1, keepdim=True)
+
+                        ref_logits_per_image = logit_scale * image_features @ caption_features.t()
+                        logits_per_image = logit_scale * image_features @ generated_captions_features.t()
+                        logits_per_image = torch.diag(logits_per_image)
+                        ref_logits_per_image = torch.diag(ref_logits_per_image)
+                        rewards = torch.div(logits_per_image, ref_logits_per_image).unsqueeze(1).float()  # to change the current Half type into float type
+
+                    values = valueNetwork(images, generated_word_ids[:,:random.randint(1, max_len)])
+                    loss = criterion(values, rewards)
+
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                    valueNetwork.captionRNN.hidden_state[0].detach_()
+                    valueNetwork.captionRNN.hidden_state[1].detach_()
+
+                    train_losses.append(loss.item())
+                    print_loss += loss.item()
+
+                    if i % 50 ==0:
+                        print_msg = "[" + str(epoch + 1) + ", " + str(i + 1) + "]" + ", running_loss: " + str(
+                            print_loss / 50)
+                        print(print_msg)
+                        f.write(print_msg + "\n")
+                        print_loss = 0.0
+
+            valueNetwork.eval()
+            with torch.no_grad():
+                for i, (images, captions, length, image_features, caption_features) in enumerate(validate_data):
+                    images = images.to(device)
+                    captions = captions.to(device)
+                    image_features = image_features.to(device)
+                    caption_features = caption_features.to(device)
+
+                    features = policy_encoder(images)
+                    generated_word_ids = policy_decoder.generate(features)  # generated_word_ids: (batch_size, max_len)
+                    generated_captions = turnIdsToSentence(generated_word_ids, voc).to(device)
+                    generated_captions_features = clip_model.encode_text(generated_captions)
+                    generated_captions_features = generated_captions_features / generated_captions_features.norm(dim=1, keepdim=True)
+
+                    ref_logits_per_image = logit_scale * image_features @ caption_features.t()
+                    logits_per_image = logit_scale * image_features @ generated_captions_features.t()
                     logits_per_image = torch.diag(logits_per_image)
                     ref_logits_per_image = torch.diag(ref_logits_per_image)
-                    rewards = torch.div(logits_per_image, ref_logits_per_image).unsqueeze(1).float()  # to change the current Half type into float type
+                    rewards = torch.div(logits_per_image, ref_logits_per_image).unsqueeze(1).float()
 
-                values = valueNetwork(images, generated_word_ids[:,:random.randint(1, max_len)])
-                loss = criterion(values, rewards)
+                    values = valueNetwork(images, generated_word_ids[:, :random.randint(1, max_len)])
+                    loss = criterion(values, rewards)
+                    valid_losses.append(loss.item())
 
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                valueNetwork.captionRNN.hidden_state[0].detach_()
-                valueNetwork.captionRNN.hidden_state[1].detach_()
-
-                train_losses.append(loss.item())
-                print_loss += loss.item()
-
-                if i % 50 ==0:
-                    print_msg = "[" + str(epoch + 1) + ", " + str(i + 1) + "]" + ", running_loss: " + str(
-                        print_loss / 50)
-                    print(print_msg)
-                    print_loss = 0.0
-
-        valueNetwork.eval()
-        with torch.no_grad():
-            for i, (images, captions, length, clips_image, raw_captions) in enumerate(validate_data):
-                images = images.to(device)
-                captions = captions.to(device)
-                clips_image = clips_image.to(device)
-
-                features = policy_encoder(images)
-                generated_word_ids = policy_decoder.generate(features)  # generated_word_ids: (batch_size, max_len)
-
-                clip_captions = turnIdsToSentence(generated_word_ids, voc).to(device)
-                text = clip.tokenize(raw_captions).to(device)
-                logits_per_image, _ = clip_model(clips_image, clip_captions)
-                ref_logits_per_image, _ = clip_model(clips_image, text)
-                logits_per_image = torch.diag(logits_per_image)
-                ref_logits_per_image = torch.diag(ref_logits_per_image)
-                rewards = torch.div(logits_per_image, ref_logits_per_image).unsqueeze(1).float()
-
-                values = valueNetwork(images, generated_word_ids[:, :random.randint(1, max_len)])
-                loss = criterion(values, rewards)
-                valid_losses.append(loss.item())
-
-        train_loss = np.average(train_losses)
-        valid_loss = np.average(valid_losses)
-        print_msg = "epoch: " + str(epoch + 1) + ", train_loss: " + str(train_loss) + ", valid_loss: " + str(valid_loss)
-        print(print_msg)
-        if valid_loss < best_loss:
-            best_loss = valid_loss
-            torch.save(valueNetwork.state_dict(), value_save_path, _use_new_zipfile_serialization=False)
-        else:
-            print("Early stopping with best_acc: ", best_loss)
-            break
+            train_loss = np.average(train_losses)
+            valid_loss = np.average(valid_losses)
+            print_msg = "epoch: " + str(epoch + 1) + ", train_loss: " + str(train_loss) + ", valid_loss: " + str(valid_loss)
+            print(print_msg)
+            f.write(print_msg + "\n")
+            # if valid_loss < best_loss:
+            #     best_loss = valid_loss
+            #     torch.save(valueNetwork.state_dict(), value_save_path, _use_new_zipfile_serialization=False)
+            # else:
+            #     print("Early stopping with best_acc: ", best_loss)
+            #     f.write("Early stopping with best_acc: " + str(best_loss) + "\n")
+            #     break
+    f.close()

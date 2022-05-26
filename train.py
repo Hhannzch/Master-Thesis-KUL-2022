@@ -7,8 +7,7 @@ def train(encoder, decoder, train_data, validate_data, device, lr, encoder_save_
     criterion = nn.CrossEntropyLoss()
     params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
     optimizer = torch.optim.Adam(params, lr=lr)
-    train_losses = []
-    valid_losses = []
+
     print_loss = 0
     best_loss = float('inf')
     torch.cuda.empty_cache()
@@ -18,6 +17,8 @@ def train(encoder, decoder, train_data, validate_data, device, lr, encoder_save_
         for epoch in range(nepoch):
             encoder.train()
             decoder.train()
+            train_losses = []
+            valid_losses = []
             for i, (images, captions, length) in enumerate(train_data):
                  if len(images)>1:
                     images = images.to(device)
