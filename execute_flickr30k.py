@@ -2,7 +2,7 @@ import os
 from pycocotools.coco import COCO
 from torchvision import transforms, utils
 import torch
-from dataloader_flickr30k import flickr30kData, collater
+from dataloader_flickr30k import flickr30kData, collater, collate_fn_train
 from torch.nn.utils.rnn import pack_padded_sequence
 from model import Encoder, Decoder
 from train import *
@@ -14,6 +14,7 @@ from train_value_model import train_value
 import clip
 from curriculum_learning_RL import curriculumLearning_RL
 from value_model import ValueNetwork
+from actor_critic import monteCarlo_ac
 
 # def getData(train_data, val_data):
 #     train_data = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=args.deterministic,
@@ -27,13 +28,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Some description.")
 
     parser.add_argument("--anns_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\flickr30k\\annotations\\annotations.token")
+                        default="/Users/doriszhang/Downloads/flickr30k/annotations/annotations.token")
     parser.add_argument("--image_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\flickr30k\\images")
+                        default="/Users/doriszhang/Downloads/flickr30k/images")
+    parser.add_argument("--images_features_path", type=str,
+                        default="/root/thesis/flickr30k/images_features")
+    parser.add_argument("--captions_features_path", type=str,
+                        default="/root/thesis/flickr30k/captions_features")
+
     parser.add_argument("--test_info", type=str,
-                        default="C:\\Users\\doris\\Downloads\\flickr30k\\annotations\\test_caption_coco_format_100.json")
+                        default="/root/thesis/flickr30k/annotations/test_caption_coco_format_100.json")
     parser.add_argument("--test_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\flickr30k\\images")
+                        default="/root/thesis/flickr30k/images")
     # parser.add_argument("--test_info", type=str,
     #                     default="C:\\Users\\doris\\Downloads\\coco_val\\annotations_trainval2017\\annotations\\captions_val2017.json")
     # parser.add_argument("--test_path", type=str,
@@ -57,34 +63,48 @@ if __name__ == '__main__':
                         default=15)
     parser.add_argument("--lr", type=float,
                         default=0.001)
+    parser.add_argument("--alpha", type=float,
+                        default=0.7)
     parser.add_argument("--beam_size", type=int,
                         default=5)
+    parser.add_argument("--candidate_range", type=int,
+                        default=1)
 
     parser.add_argument("--encoder_save_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\encoder.pth")
+                        default="/root/thesis/windows_models/encoder.pth")
     parser.add_argument("--decoder_save_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\decoder.pth")
+                        default="/root/thesis/windows_models/decoder.pth")
     parser.add_argument("--reward_save_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\reward.pth")
+                        default="/root/thesis/windows_models/reward.pth")
     parser.add_argument("--value_save_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\value.pth")
-    parser.add_argument("--log_save_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\log.txt")
+                        default="/root/thesis/windows_models/value.pth")
+    parser.add_argument("--policy_log_save_path", type=str,
+                        default="/root/thesis/logs/policy_log.txt")
+    parser.add_argument("--value_log_save_path", type=str,
+                        default="/root/thesis/logs/value_log.txt")
+    parser.add_argument("--cl_log_save_path", type=str,
+                        default="/root/thesis/logs/cl_log.txt")
+    parser.add_argument("--mc_log_save_path", type=str,
+                        default="/root/thesis/logs/mc_log.txt")
 
     parser.add_argument("--encoder_save_new_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\encoder_new.pth")
+                        default="/root/thesis/new_models/encoder.pth")
     parser.add_argument("--decoder_save_new_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\decoder_new.pth")
+                        default="/root/thesis/new_models/decoder.pth")
     parser.add_argument("--value_save_new_path", type=str,
-                        default="C:\\Users\\doris\\Downloads\\value_new.pth")
+                        default="/root/thesis/new_models/value.pth")
 
     args = parser.parse_args()
 
 
     voc = build_voc(args.anns_path, args.nmin)
-    dataset = flickr30kData(args.image_path, args.anns_path, voc,
+    # 224
+    # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                    #  std=[0.229, 0.224, 0.225])
+    torch.multiprocessing.set_start_method('spawn')
+    dataset = flickr30kData(args.image_path, args.anns_path, args.images_features_path, args.captions_features_path, voc,
                        transform=transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor(),
-                                                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]))
+                                                     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]))
     dataset_length = len(dataset)
     val_data_len = (int(dataset_length/40))*4
     train_data_len = dataset_length - val_data_len
@@ -94,9 +114,15 @@ if __name__ == '__main__':
     _, preprocess = clip.load("ViT-B/32", device=device)
     train_data, val_data = torch.utils.data.random_split(dataset, [train_data_len, val_data_len])
     my_collater = collater(preprocess)
-    train_data = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=args.deterministic,
+    
+    train_data1 = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=args.deterministic,
+                                             num_workers=args.num_workers, collate_fn=collate_fn_train)
+    val_data1 = torch.utils.data.DataLoader(val_data, batch_size=args.batch_size, shuffle=args.deterministic,
+                                           num_workers=args.num_workers, collate_fn=collate_fn_train)
+    
+    train_data2 = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=args.deterministic,
                                              num_workers=args.num_workers, collate_fn=my_collater)
-    val_data = torch.utils.data.DataLoader(val_data, batch_size=args.batch_size, shuffle=args.deterministic,
+    val_data2 = torch.utils.data.DataLoader(val_data, batch_size=args.batch_size, shuffle=args.deterministic,
                                            num_workers=args.num_workers, collate_fn=my_collater)
 
 
@@ -106,46 +132,37 @@ if __name__ == '__main__':
                       max_length=args.max_length).to(device)
 
     # torch.cuda.empty_cache()
-    # train(encoder, decoder, train_data, val_data, device, args.lr, args.encoder_save_path, args.decoder_save_path, args.nepoch, args.log_save_path)
-    # test(args.test_info, args.test_path, device, args.embed_size, args.hidden_size, args.max_length, batch_size=args.batch_size, beam_size=args.beam_size, deterministic=args.deterministic, num_workers=args.num_workers,
-    #      encoder_save_path=args.encoder_save_path, decoder_save_path=args.decoder_save_path)
-    # train_reward(train_data, val_data, 0.0001, args.reward_save_path, len(voc), 50)
+    # train(encoder, decoder, train_data1, val_data1, device, args.lr, args.encoder_save_path, args.decoder_save_path, args.nepoch, args.policy_log_save_path)
 
     # encoder.load_state_dict(torch.load(args.encoder_save_path, map_location=device))
     # decoder.load_state_dict(torch.load(args.decoder_save_path, map_location=device))
-    # train_value(train_data, val_data, 0.00001, args.value_save_path, encoder, decoder, voc, 50, args.max_length)
+    # train_value(train_data2, val_data2, 0.00001, args.value_save_path, encoder, decoder, voc, args.nepoch, args.max_length, args.value_log_save_path)
 
-    # curriculumLearning_RL(train_data, val_data, args.lr, args.encoder_save_new_path, args.decoder_save_new_path, args.value_save_new_path,
-    #                       encoder, decoder, args.value_save_path, voc, args.nepoch, args.max_length)
+    # curriculumLearning_RL(train_data2, val_data2, args.lr, args.encoder_save_new_path, args.decoder_save_new_path, args.value_save_new_path,
+                        #   encoder, decoder, args.value_save_path, voc, args.nepoch, args.max_length, args.cl_log_save_path)
+    # monteCarlo_ac(train_data2, val_data2, args.lr, args.encoder_save_new_path, args.decoder_save_new_path, encoder, decoder, args.value_save_path, voc, args.nepoch, args.max_length, args.mc_log_save_path)
+    # monteCarlo_ac(train_data2, val_data2, args.lr, args.value_save_new_path,
+                        #   encoder, decoder, args.value_save_path, voc, args.nepoch, args.max_length, args.mc_log_save_path)
+
     valueNetwork = ValueNetwork(len(voc))
-    valueNetwork.load_state_dict(torch.load(args.value_save_new_path, map_location=device))
-    test(args.test_info, args.test_path, device, args.embed_size, args.hidden_size, args.max_length,
-         batch_size=args.batch_size, beam_size=args.beam_size, deterministic=args.deterministic,
-         num_workers=args.num_workers,
-         encoder_save_path=args.encoder_save_new_path, decoder_save_path=args.decoder_save_new_path, valueNetwork=valueNetwork)
-         # encoder_save_path=args.encoder_save_path, decoder_save_path=args.decoder_save_path,
-         # valueNetwork=valueNetwork)
+    # valueNetwork.load_state_dict(torch.load(args.value_save_new_path, map_location=device))
+    # valueNetwork.load_state_dict(torch.load(args.value_save_path, map_location=device))
 
-    # for i, (images, captions, length, clip_images, raw_captions) in enumerate(train_data):
-    #     clip_model, preprocess = clip.load("ViT-B/32", device='cuda')
-    #     # images = images.to('cuda')
-    #     # image = torch.tensor([preprocess(raw_image).unsqueeze(0) for raw_image in raw_images]).to('cuda')
-    #     # text = clip.tokenize(raw_captions).to('cuda')
-    #
-    #
-    #     # image1 = preprocess(raw_images[0]).unsqueeze(0).to('cuda')
-    #     # image2 = preprocess(raw_images[1]).unsqueeze(0).to('cuda')
-    #     # image = torch.stack((image1.squeeze(0), image2.squeeze(0)), 0)
-    #     # print(image.size())
-    #
-    #     text = clip.tokenize(raw_captions).to('cuda')
-    #     clip_images = clip_images.to('cuda')
-    #
-    #     logits_per_image, logits_per_text = clip_model(clip_images, text)
-    #     print(logits_per_image)
-    #     print(logits_per_text)
-    #     test1 = torch.diag(logits_per_image)
-    #     test2 = torch.diag(logits_per_text)
-    #     print(torch.div(test1, test2))
-    #     break
+    # test(args.test_info, args.test_path, device, args.embed_size, args.hidden_size, args.max_length,
+    #      batch_size=args.batch_size, beam_size=args.beam_size, deterministic=args.deterministic, num_workers=args.num_workers,
+    #      candidate_range=args.candidate_range, alpha=args.alpha,
+        #  encoder_save_path=args.encoder_save_new_path, decoder_save_path=args.decoder_save_new_path, valueNetwork=valueNetwork)
+        #  encoder_save_path=args.encoder_save_path, decoder_save_path=args.decoder_save_path, valueNetwork=valueNetwork)
+
+    total_num = sum(p.numel() for p in encoder.parameters())
+    trainable_num = sum(p.numel() for p in encoder.parameters() if p.requires_grad)
+    print("Total " + str(total_num) + "Trainable "+ str(trainable_num))
+
+    total_num = sum(p.numel() for p in decoder.parameters())
+    trainable_num = sum(p.numel() for p in decoder.parameters() if p.requires_grad)
+    print("Total " + str(total_num) + "Trainable "+ str(trainable_num))
+
+    total_num = sum(p.numel() for p in valueNetwork.parameters())
+    trainable_num = sum(p.numel() for p in valueNetwork.parameters() if p.requires_grad)
+    print("Total " + str(total_num) + "Trainable "+ str(trainable_num))
 

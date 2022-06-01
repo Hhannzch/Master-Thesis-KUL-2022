@@ -136,7 +136,7 @@ def train_value(train_data, validate_data, lr, value_save_path, policy_encoder, 
             f.write(print_msg + "\n")
             # if valid_loss < best_loss:
             #     best_loss = valid_loss
-            #     torch.save(valueNetwork.state_dict(), value_save_path, _use_new_zipfile_serialization=False)
+            torch.save(valueNetwork.state_dict(), value_save_path, _use_new_zipfile_serialization=False)
             # else:
             #     print("Early stopping with best_acc: ", best_loss)
             #     f.write("Early stopping with best_acc: " + str(best_loss) + "\n")

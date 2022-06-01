@@ -24,7 +24,8 @@ class ActorCriticNetwork(nn.Module):
     def forward(self, images, captions):
         features = self.policy_encoder(images)
         probs = self.policy_decoder.forward_cl(features, captions)
-        values = self.valueNetwork(images, captions)
+        with torch.no_grad():
+          values = self.valueNetwork(images, captions)
         return values, probs
 
 def buildNewData(images, captions, clip_images_features, clip_captions_features, length, level):
@@ -177,10 +178,12 @@ def curriculumLearning_RL(train_data, validate_data, lr, encoder_save_path, deco
                         advantage_list = values_list - rewards_list
                         advantage_list = torch.abs(advantage_list)
                         actorLoss = ((-log_probs_list) * advantage_list).mean()
-                        criticLoss = 0.5 * advantage_list.pow(2).mean()
+                        # criticLoss = 0.5 * advantage_list.pow(2).mean()
                         # criticLoss = torch.abs(values_list * advantage_list).mean()
 
-                        loss = actorLoss + criticLoss
+                        # loss = actorLoss + criticLoss
+                        loss = actorLoss
+                        loss.requires_grad_(True)
                         # loss.requires_grad_(True)
 
                         optimizer.zero_grad()
@@ -279,7 +282,7 @@ def curriculumLearning_RL(train_data, validate_data, lr, encoder_save_path, deco
                     best_loss = valid_loss
                     torch.save(encoder.state_dict(), encoder_save_path, _use_new_zipfile_serialization=False)
                     torch.save(decoder.state_dict(), decoder_save_path, _use_new_zipfile_serialization=False)
-                    torch.save(valueNetwork.state_dict(), value_save_new_path, _use_new_zipfile_serialization=False)
+                    # torch.save(valueNetwork.state_dict(), value_save_new_path, _use_new_zipfile_serialization=False)
                 else:
                     print("Early stopping with best_acc: ", best_loss)
                     f.write("Early stopping with best_acc: " + str(best_loss) + "\n")
